@@ -1,0 +1,10 @@
+{
+    "authors": [
+        "Alisa Lain"
+    ],
+    "copyright": "Copyright © 2022, Alisa Lain",
+    "description": "Extension to js++ compiler",
+    "license": "MIT",
+    "name": "jsppext",
+    "targetPath": "./bin/"
+}
