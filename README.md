@@ -11,6 +11,7 @@ Updated option `-o, --output` now compiles all main files in directory specified
 into directory specified after this option.
 
 ### !IMPORTANT!
+- If `--output` option is omitted then it defaults to `.` path.
 - `jsppext --output` scans only for files with extensions `jspp`, `js++` and `jpp`.
 - If source specified as filepath you can set output filepath. I.e. `jsppext src/main.jpp -o js/out.js`, else it's going to only change filename (`jsppext src/main.jpp -o js/` -> `js/main.js`).
 - You cannot specify several files to compile, except if you specify directory. For that, please, use original compiler.
