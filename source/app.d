@@ -176,6 +176,7 @@ int main(string[] args) {
 
         auto errorRegex = regex(r"(?:\[  ERROR  \] )(.*?)(?:\: )(.*?)(?: at line )(\d+?)(?: char )(\d+?)(?: at )(.*)");
         auto continueRegex = regex(r"( *?)(?: at )(.*)");
+        auto parseRegex = regex(r"Parse Error: Line (\d*?)\: (.*?) \((.*)\)");
         auto cout = File(coutPath, "r");
         string line;
 
@@ -184,6 +185,7 @@ int main(string[] args) {
         while ((line = cout.readln()) !is null) {
             auto cap1 = line.matchFirst(errorRegex);
             auto cap2 = line.matchFirst(continueRegex);
+            auto cap3 = line.matchFirst(parseRegex);
             if (!cap1.empty()) {
                 err = CompileError(cap1[1], cap1[3].to!int, cap1[4].to!int + 2, cap1[2], cap1[5]);
 
@@ -196,6 +198,15 @@ int main(string[] args) {
             } else 
             if (!cap2.empty()) {
                 err = CompileError(err.code, cap1[3].to!int, cap1[4].to!int, err.message, cap1[5]);
+
+                string errfile = findFilePath(err.file, mainFiles, modules);
+
+                err.file = errfile.buildNormalizedPath.relativePath(getcwd());
+
+                writefln( "%s(%d,%d): Error[%s]: %s.", err.file, err.line, err.pos, err.code, err.message );
+            } else 
+            if (!cap3.empty()) {
+                err = CompileError("JSPPE0000", cap3[1].to!int, 0, cap3[2], cap3[3]);
 
                 string errfile = findFilePath(err.file, mainFiles, modules);
 
