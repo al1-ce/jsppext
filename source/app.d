@@ -21,6 +21,7 @@ int main(string[] args) {
     bool _execute = false;
     string _targetPath = "";
     bool _version = false;
+    bool _nolint = false;
 
     GetoptResult helpInfo = getopt(
         args, 
@@ -31,6 +32,7 @@ int main(string[] args) {
         "version", "Display the JS++ compiler version and exit", &_version,
         "auto|a", "Autocompile file into specified directory", &_targetPath,
         "verbose|v", "Produces verbose output", &_verbose,
+        "nolint|n", "Removes error transcription (outputs js++ out instead of jsppext).", &_nolint
     );
 
     string jsppPath = thisExePath().dirName() ~ dirSeparator ~ "js++";
@@ -168,57 +170,68 @@ int main(string[] args) {
         if (!_verbose && !_srcPath.isFile) 
             writefln("\n===== %s =====\n", f.name.replace(absScanPath, scanPath).buildNormalizedPath);
 
-        string coutPath = (_srcPath.isFile ? _oldPath.dirName : _oldPath) ~ dirSeparator ~ "____jspp_compilelog";
-        auto processOut = File(coutPath, "w+");
+        if (_nolint) {
+            wait(spawnProcess([jsppPath] ~ _args, stdin, stdout));
+        } else {
+            string coutPath = (_srcPath.isFile ? _oldPath.dirName : _oldPath) ~ dirSeparator ~ "____jspp_compilelog";
+            auto processOut = File(coutPath, "w+");
 
-        wait(spawnProcess([jsppPath] ~ _args, stdin, processOut));
-        processOut.close();
+            wait(spawnProcess([jsppPath] ~ _args, stdin, processOut));
+            processOut.close();
 
-        auto errorRegex = regex(r"(?:\[  ERROR  \] )(.*?)(?:\: )(.*?)(?: at line )(\d+?)(?: char )(\d+?)(?: at )(.*)");
-        auto continueRegex = regex(r"( *?)(?: at )(.*)");
-        auto parseRegex = regex(r"Parse Error: Line (\d*?)\: (.*?) \((.*)\)");
-        auto cout = File(coutPath, "r");
-        string line;
+            auto errRegex = 
+                regex(r"(?:\[  ERROR  \] )(.*?)(?:\: )(.*?)(?: at line )(\d+?)(?: char )(\d+?)(?: at )(.*)");
+            auto continueRegex = regex(r"( *?)(?: at )(.*)");
+            auto parseRegex = regex(r"Parse Error: Line (\d*?)\: (.*) \((.*)\)");
+            auto cout = File(coutPath, "r");
+            string line;
 
-        CompileError err;
+            CompileError err;
 
-        while ((line = cout.readln()) !is null) {
-            auto cap1 = line.matchFirst(errorRegex);
-            auto cap2 = line.matchFirst(continueRegex);
-            auto cap3 = line.matchFirst(parseRegex);
-            if (!cap1.empty()) {
-                err = CompileError(cap1[1], cap1[3].to!int, cap1[4].to!int + 2, cap1[2], cap1[5]);
+            while ((line = cout.readln()) !is null) {
+                auto cap1 = line.matchFirst(errRegex);
+                auto cap2 = line.matchFirst(continueRegex);
+                auto cap3 = line.matchFirst(parseRegex);
+                if (!cap1.empty()) {
+                    err = CompileError(cap1[1], ("0" ~ cap1[3]).to!int, ("0" ~ cap1[4]).to!int + 2, cap1[2], cap1[5]);
 
-                string errfile = findFilePath(err.file, mainFiles, modules);
+                    string errfile = findFilePath(err.file, mainFiles, modules);
 
-                err.file = errfile.buildNormalizedPath.relativePath(getcwd());
+                    err.file = errfile.buildNormalizedPath.relativePath(getcwd());
 
-                writefln( "%s(%d,%d): Error[%s]: %s.", err.file, err.line, err.pos, err.code, err.message );
-                // source\app.d(190,34): Error: undefined identifier `caap`, did you mean variable `cap`?
-            } else 
-            if (!cap2.empty()) {
-                err = CompileError(err.code, cap1[3].to!int, cap1[4].to!int, err.message, cap1[5]);
+                    writefln( "%s(%d,%d): Error[%s]: %s.", err.file, err.line, err.pos, err.code, err.message );
+                    // source\app.d(190,34): Error: undefined identifier `caap`, did you mean variable `cap`?
+                } else 
+                if (!cap2.empty()) {
+                    err = CompileError(
+                        err.code, 
+                        ("0" ~ cap2[3]).to!int, 
+                        ("0" ~ cap2[4]).to!int + 2, 
+                        err.message, 
+                        cap1[5]
+                        );
 
-                string errfile = findFilePath(err.file, mainFiles, modules);
+                    string errfile = findFilePath(err.file, mainFiles, modules);
 
-                err.file = errfile.buildNormalizedPath.relativePath(getcwd());
+                    err.file = errfile.buildNormalizedPath.relativePath(getcwd());
 
-                writefln( "%s(%d,%d): Error[%s]: %s.", err.file, err.line, err.pos, err.code, err.message );
-            } else 
-            if (!cap3.empty()) {
-                err = CompileError("JSPPE0000", cap3[1].to!int, 0, cap3[2], cap3[3]);
+                    writefln( "%s(%d,%d): Error[%s]: %s.", err.file, err.line, err.pos, err.code, err.message );
+                } else 
+                if (!cap3.empty()) {
+                    err = CompileError("JSPPE0000", ("0" ~ cap3[1]).to!int, 0, cap3[2], cap3[3]);
 
-                string errfile = findFilePath(err.file, mainFiles, modules);
+                    string errfile = findFilePath(err.file, mainFiles, modules);
 
-                err.file = errfile.buildNormalizedPath.relativePath(getcwd());
+                    err.file = errfile.buildNormalizedPath.relativePath(getcwd());
 
-                writefln( "%s(%d,%d): Error[%s]: %s.", err.file, err.line, err.pos, err.code, err.message );
-            } else {
-                write(line);
+                    writefln( "%s(%d,%d): Error[%s]: %s.", err.file, err.line, err.pos, err.code, err.message );
+                } else {
+                    write(line);
+                }
             }
+            cout.close();
+            coutPath.remove();
         }
-        cout.close();
-        coutPath.remove();
     }
 
     return 0;
