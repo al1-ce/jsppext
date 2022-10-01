@@ -4,6 +4,15 @@
 
 Copy `jsppext` into your js++ compiler location (directory with `js++` executable)
 
+## Building:
+
+### Prerequisites:
+
+[D language](https://dlang.org) compiler is required. 
+
+Clone repository and run `dub build -b release`. Dub is going to compile `jsppext` into
+`bin` folder.
+
 ## Usage: 
 All options for compiler (v.0.10.0) are fully translated and used in same way as js++ options with exception of `-o`.
 
