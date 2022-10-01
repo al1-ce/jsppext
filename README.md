@@ -35,7 +35,7 @@ same name have error only one will be picked (by path alphabetically).
 Insert this into your vscode build task.
 
 ```json
-"problemMatcher": [{ "source": "js++","pattern": [{"file": 1, "line": 2, "column": 3, "code": 4, "message": 5, "regexp": "(.*?)\\((\\d+)\\,(\\d+)\\)\\: Error\\[(.*?)\\]\\: (.*)" }] }]
+"problemMatcher": [{ "owner": "js++","source": "js++","pattern": [{"file": 1, "line": 2, "column": 3, "code": 4, "message": 5, "regexp": "(.*?)\\((\\d+)\\,(\\d+)\\)\\: Error\\[(.*?)\\]\\: (.*)" }] }]
 ```
 
 #### Build task command
