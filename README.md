@@ -28,13 +28,27 @@ Mainly it addresses `FileName` part in original output. `jsppext` tries to predi
 Important part is: this way of deducting filepath have a flaw in which if several files with 
 same name have error only one will be picked (by path alphabetically).
 
-### !IMPORTANT!
+### VSCode:
+
+#### Error linting
+
+Insert this into your vscode build task.
+
+```json
+"problemMatcher": [{ "source": "js++","pattern": [{"file": 1, "line": 2, "column": 3, "code": 4, "message": 5, "regexp": "(.*?)\\((\\d+)\\,(\\d+)\\)\\: Error\\[(.*?)\\]\\: (.*)" }] }]
+```
+
+#### Build task command
+
+This repository includes [example build task](vscode-build-task-example.json) with custom problem matcher.
+
+## !IMPORTANT!
 - If `--output` option is omitted then it defaults to `.` path.
 - `jsppext --output` scans only for files with extensions `jspp`, `js++` and `jpp`.
 - If source specified as filepath you can set output filepath. I.e. `jsppext src/main.jpp -o js/out.js`, else it's going to only change filename (`jsppext src/main.jpp -o js/` -> `js/main.js`).
 - You cannot specify several files to compile, except if you specify directory. For that, please, use original compiler.
 
-### Example
+## Example
 Your source tree is:
 ```
 src/
