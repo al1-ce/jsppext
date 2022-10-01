@@ -10,6 +10,15 @@ All options for compiler (v.0.10.0) are fully translated and used in same way as
 Updated option `-o, --output` now compiles all main files in directory specified in source 
 into directory specified after this option.
 
+## Stdout:
+Also `jsppext` changes compile output to be more readable for any linters. \
+Old format: [  ERROR  ] `ErrorCode`: `ErrorMessage` at line `Line` char `Pos` at `FileName` \
+New format: `FilePath`(`Line`,`Pos`): Error[`ErrorCode`]: `ErrorMessage`. 
+
+Mainly it addresses `FileName` part in original output. `jsppext` tries to predict filepath from error based on constructed file list for compilation. \
+Important part is: this way of deducting filepath have a flaw in which if several files with 
+same name have error only one will be picked (by path alphabetically).
+
 ### !IMPORTANT!
 - If `--output` option is omitted then it defaults to `.` path.
 - `jsppext --output` scans only for files with extensions `jspp`, `js++` and `jpp`.

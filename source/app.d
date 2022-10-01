@@ -1,8 +1,8 @@
-import std.stdio: writef, writefln, readln;
+import std.stdio: writef, writefln, readln, stdin, stdout;
 import std.getopt: getopt, GetoptResult, config;
 import std.array: popFront, popBack, join, split, replace;
-import std.file: readText, exists, isFile, mkdirRecurse, dirEntries, SpanMode, thisExePath, write;
-import std.path: buildNormalizedPath, absolutePath, isValidPath, dirSeparator, dirName;
+import std.file: readText, exists, isFile, mkdirRecurse, dirEntries, SpanMode, thisExePath, write, getcwd, remove;
+import std.path: buildNormalizedPath, absolutePath, isValidPath, dirSeparator, dirName, relativePath;
 import std.process: execute, environment, executeShell, Config, spawnProcess, wait;
 import std.conv: to;
 import std.regex;
@@ -168,10 +168,71 @@ int main(string[] args) {
         if (!_verbose && !_srcPath.isFile) 
             writefln("\n===== %s =====\n", f.name.replace(absScanPath, scanPath).buildNormalizedPath);
 
-        wait(spawnProcess([jsppPath] ~ _args));
+        string coutPath = (_srcPath.isFile ? _oldPath.dirName : _oldPath) ~ dirSeparator ~ "____jspp_compilelog";
+        auto processOut = File(coutPath, "w+");
+
+        wait(spawnProcess([jsppPath] ~ _args, stdin, processOut));
+        processOut.close();
+
+        auto errorRegex = regex(r"(?:\[  ERROR  \] )(.*?)(?:\: )(.*?)(?: at line )(\d+?)(?: char )(\d+?)(?: at )(.*)");
+        auto continueRegex = regex(r"( *?)(?: at )(.*)");
+        auto cout = File(coutPath, "r");
+        string line;
+
+        CompileError err;
+
+        while ((line = cout.readln()) !is null) {
+            auto cap1 = line.matchFirst(errorRegex);
+            auto cap2 = line.matchFirst(continueRegex);
+            if (!cap1.empty()) {
+                err = CompileError(cap1[1], cap1[3].to!int, cap1[4].to!int + 2, cap1[2], cap1[5]);
+
+                string errfile = findFilePath(err.file, mainFiles, modules);
+
+                err.file = errfile.buildNormalizedPath.relativePath(getcwd());
+
+                writefln( "%s(%d,%d): Error[%s]: %s.", err.file, err.line, err.pos, err.code, err.message );
+                // source\app.d(190,34): Error: undefined identifier `caap`, did you mean variable `cap`?
+            } else 
+            if (!cap2.empty()) {
+                err = CompileError(err.code, cap1[3].to!int, cap1[4].to!int, err.message, cap1[5]);
+
+                string errfile = findFilePath(err.file, mainFiles, modules);
+
+                err.file = errfile.buildNormalizedPath.relativePath(getcwd());
+
+                writefln( "%s(%d,%d): Error[%s]: %s.", err.file, err.line, err.pos, err.code, err.message );
+            } else {
+                write(line);
+            }
+        }
+        cout.close();
+        coutPath.remove();
     }
 
     return 0;
+}
+
+struct CompileError {
+    string code;
+    int line;
+    int pos;
+    string message;
+    string file;
+}
+
+struct FileEntry {
+    string name;
+    bool isModule;
+    string[] imports;
+    string moduleName;
+
+    this(string _name) {
+        name = _name;
+        isModule = false;
+        imports = [];
+        moduleName = "";
+    }
 }
 
 void writeVerbose(T...)(T args) {
@@ -186,6 +247,24 @@ bool isPathFile(string path) {
     auto re = regex(r"^.*?\.(?:\w+)$");
     auto cap = path.matchFirst(re);
     return !cap.empty();
+}
+
+string findFilePath(string file, FileEntry[] files) {
+    for (int i = 0; i < files.length; i ++) {
+        FileEntry e = files[i];
+        if (e.name.endsWith(file)) {
+            return e.name;
+        }
+    }
+    return file;
+}
+
+string findFilePath(string file, FileEntry[] files1, FileEntry[] files2) {
+    string _out = findFilePath(file, files1);
+    if (_out == file) {
+        return findFilePath(file, files2);
+    }
+    return _out;
 }
 
 int findModuleIndex(FileEntry[] entries, string moduleName) {
@@ -264,18 +343,4 @@ bool canFindString(string[] arr, string val) {
         if (arr[i] == val) return true;
     }
     return false;
-}
-
-struct FileEntry {
-    string name;
-    bool isModule;
-    string[] imports;
-    string moduleName;
-
-    this(string _name) {
-        name = _name;
-        isModule = false;
-        imports = [];
-        moduleName = "";
-    }
 }

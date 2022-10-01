@@ -24,3 +24,6 @@ docs/
 *.lst
 
 test/
+
+*.js
+*.jpp
