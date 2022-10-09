@@ -180,20 +180,33 @@ int main(string[] args) {
             processOut.close();
 
             auto errRegex = 
-                regex(r"(?:\[  ERROR  \] )(.*?)(?:\: )(.*?)(?: at line )(\d+?)(?: char )(\d+?)(?: at )(.*)");
-            auto continueRegex = regex(r"( *?)(?: at )(.*)");
+                regex(r"(?:\[  ERROR  \] )(.*?)(?:\: )(.*?)(?: at line )(\d+?)(?: char )(\d+?)(?: at )(.*?)\s");
+            auto warnRegex = 
+                regex(r"(?:\[ WARNING \] )(.*?)(?:\: )(.*?)(?: at line )(\d+?)(?: char )(\d+?)(?: at )(.*?)\s");
+            auto continueRegex = regex(r"(.*?)(?: at line )(\d+?)(?: char )(\d+?)(?: at )(.*?)\s");
+            auto warnContRegex = regex(r"(.*?)(?: at line )(\d+?)(?: char )(\d+?)(?: at )(.*?)\s");
             auto parseRegex = regex(r"Parse Error: Line (\d*?)\: (.*) \((.*)\)");
             auto cout = File(coutPath, "r");
             string line;
 
             CompileError err;
 
+            bool isErrPrev = false;
+            bool isWarPrev = false;
+
             while ((line = cout.readln()) !is null) {
-                auto cap1 = line.matchFirst(errRegex);
-                auto cap2 = line.matchFirst(continueRegex);
-                auto cap3 = line.matchFirst(parseRegex);
-                if (!cap1.empty()) {
-                    err = CompileError(cap1[1], ("0" ~ cap1[3]).to!int, ("0" ~ cap1[4]).to!int + 2, cap1[2], cap1[5]);
+                auto capErr = line.matchFirst(errRegex);
+                auto carErrCon = line.matchFirst(continueRegex);
+                auto capWar = line.matchFirst(warnRegex);
+                auto capWarCon = line.matchFirst(warnContRegex);
+                auto capParse = line.matchFirst(parseRegex);
+                if (!capErr.empty()) {
+                    isErrPrev = true; isWarPrev = false;
+                    err = CompileError(
+                        capErr[1], 
+                        ("0" ~ capErr[3]).to!int, 
+                        ("0" ~ capErr[4]).to!int + 2, 
+                        capErr[2], capErr[5]);
 
                     string errfile = findFilePath(err.file, mainFiles, modules);
 
@@ -202,13 +215,13 @@ int main(string[] args) {
                     writefln( "%s(%d,%d): Error[%s]: %s.", err.file, err.line, err.pos, err.code, err.message );
                     // source\app.d(190,34): Error: undefined identifier `caap`, did you mean variable `cap`?
                 } else 
-                if (!cap2.empty()) {
+                if (!carErrCon.empty() && isErrPrev) {
                     err = CompileError(
                         err.code, 
-                        ("0" ~ cap2[3]).to!int, 
-                        ("0" ~ cap2[4]).to!int + 2, 
+                        ("0" ~ carErrCon[2]).to!int, 
+                        ("0" ~ carErrCon[3]).to!int + 2, 
                         err.message, 
-                        cap1[5]
+                        carErrCon[4]
                         );
 
                     string errfile = findFilePath(err.file, mainFiles, modules);
@@ -217,8 +230,39 @@ int main(string[] args) {
 
                     writefln( "%s(%d,%d): Error[%s]: %s.", err.file, err.line, err.pos, err.code, err.message );
                 } else 
-                if (!cap3.empty()) {
-                    err = CompileError("JSPPE0000", ("0" ~ cap3[1]).to!int, 0, cap3[2], cap3[3]);
+                if (!capWar.empty()) {
+                    isWarPrev = true; isErrPrev = false;
+                    err = CompileError(
+                        capWar[1], 
+                        ("0" ~ capWar[3]).to!int, 
+                        ("0" ~ capWar[4]).to!int + 2, 
+                        capWar[2], capWar[5]);
+
+                    string errfile = findFilePath(err.file, mainFiles, modules);
+
+                    err.file = errfile.buildNormalizedPath.relativePath(getcwd());
+
+                    writefln( "%s(%d,%d): Warning[%s]: %s.", err.file, err.line, err.pos, err.code, err.message );
+                    // source\app.d(190,34): Error: undefined identifier `caap`, did you mean variable `cap`?
+                } else 
+                if (!capWarCon.empty() && isWarPrev) {
+                    err = CompileError(
+                        err.code, 
+                        ("0" ~ capWarCon[2]).to!int, 
+                        ("0" ~ capWarCon[3]).to!int + 2, 
+                        err.message, 
+                        capWarCon[4]
+                        );
+
+                    string errfile = findFilePath(err.file, mainFiles, modules);
+
+                    err.file = errfile.buildNormalizedPath.relativePath(getcwd());
+
+                    writefln( "%s(%d,%d): Warning[%s]: %s.", err.file, err.line, err.pos, err.code, err.message );
+                } else
+                if (!capParse.empty()) {
+                    isWarPrev = false; isErrPrev = false;
+                    err = CompileError("JSPPE0000", ("0" ~ capParse[1]).to!int, 0, capParse[2], capParse[3]);
 
                     string errfile = findFilePath(err.file, mainFiles, modules);
 
@@ -340,6 +384,8 @@ int processFile(string filename, ref FileEntry[] mainFiles, ref FileEntry[] modu
         mainFiles ~= f;
     }
     writelnVerbose();
+
+    // auto asyncRegex = regex(r"\bawait\b\s*?\((.*?)\)\s*?;", "gm");
 
     return 0;
 }
