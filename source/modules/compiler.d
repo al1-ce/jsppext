@@ -44,19 +44,35 @@ int compile(CompileSettings s) {
 
     writelnVerbose("\nCompiling programs import lists\n");
 
+    /* --------------------------- Preprocessing files -------------------------- */
+    if (!s.unprocessed) {
+        foreach (FileEntry f; Files.main) {
+            if (s.sourcePath.isFile && f.name != s.sourcePathAbsolute) continue;
+            string fileName = f.name.replace(s.scanPathAbsolute, s.scanPath).buildNormalizedPath;
+
+            writelnVerbose("Prepocessing \"%s\"\n".format(fileName));
+            string tempFolder = getcwd ~ dirSeparator ~ "____jspp_temp";
+            preprocessFile(f, tempFolder, s.scanPathAbsolute);
+        }
+
+        foreach (FileEntry f; Files.modules) {
+            if (s.sourcePath.isFile && f.name != s.sourcePathAbsolute) continue;
+            string fileName = f.name.replace(s.scanPathAbsolute, s.scanPath).buildNormalizedPath;
+
+            writelnVerbose("Prepocessing \"%s\"\n".format(fileName));
+            string tempFolder = getcwd ~ dirSeparator ~ "____jspp_temp";
+            preprocessFile(f, tempFolder, s.scanPathAbsolute);
+        }
+    }
+
     /* -------------------------- Compiling main files -------------------------- */
     foreach (FileEntry f; Files.main) {
         if (s.sourcePath.isFile && f.name != s.sourcePathAbsolute) continue;
         string fileName = f.name.replace(s.scanPathAbsolute, s.scanPath).buildNormalizedPath;
         writelnVerbose(fileName);
 
-        if (!s.unprocessed) {
-            writelnVerbose("Prepocessing \"%s\"\n".format(fileName));
-            string tempFolder = getcwd ~ dirSeparator ~ "____jspp_temp";
-            preprocessFile(f, tempFolder);
-        }
-
-        int cmp = compileFile(f, s);
+        // TODO make more dependant on id
+        int cmp = compileFile(Files.getFile(f.originalPath), s);
         if (cmp != 0) return cmp;
     }
 
@@ -100,9 +116,9 @@ int compileFile(FileEntry f, CompileSettings s) {
         if (!s.targetPath.buildNormalizedPath.isPathFile()) {
             auto re = regex(r"(?<=\.)(?:jpp|jspp|js\+\+)$");
 
-            _args ~= f.name.replace(s.scanPathAbsolute, s.targetPath).buildNormalizedPath.replaceAll(re, "js");
+            _args ~= f.originalPath.replace(s.scanPathAbsolute, s.targetPath).buildNormalizedPath.replaceAll(re, "js");
 
-            string outPath = f.name.replace(s.scanPathAbsolute, s.targetPath).buildNormalizedPath.dirName();
+            string outPath = f.originalPath.replace(s.scanPathAbsolute, s.targetPath).buildNormalizedPath.dirName();
 
             if (!outPath.exists) {
                 mkdirRecurse(outPath);
@@ -124,11 +140,13 @@ int compileFile(FileEntry f, CompileSettings s) {
     /* ------------------------- Executing jspp compiler ------------------------ */
 
     writelnVerbose();
-    writelnVerbose("Command for \"" ~ f.name.replace(s.scanPathAbsolute, s.scanPath).buildNormalizedPath ~ "\":");
+    writelnVerbose("Command for \"" ~ 
+        f.originalPath.replace(s.scanPathAbsolute, s.scanPath).buildNormalizedPath ~ "\":");
     writelnVerbose((["js++"] ~ _args).join(" "));
     writelnVerbose();
 
-    writelnVerbose("\n===== %s =====\n".format(f.name.replace(s.scanPathAbsolute, s.scanPath).buildNormalizedPath));
+    writelnVerbose("\n===== %s =====\n"
+        .format(f.originalPath.replace(s.scanPathAbsolute, s.scanPath).buildNormalizedPath));
 
     string jsppPath = thisExePath().dirName() ~ dirSeparator ~ "js++";
     version (Windows) jsppPath ~= ".exe";
@@ -137,7 +155,7 @@ int compileFile(FileEntry f, CompileSettings s) {
         auto pidErr = wait(spawnProcess([jsppPath] ~ _args, stdin, stdout));
 
         if (pidErr == 139 || pidErr == -1_073_741_819) {
-            string filep = f.name.replace(s.scanPathAbsolute, s.scanPath).buildNormalizedPath;
+            string filep = f.originalPath.replace(s.scanPathAbsolute, s.scanPath).buildNormalizedPath;
             printError( filep, 0, 0, "JSPPE0000", "Segmentation fault" );
             return 139;
         }
@@ -150,7 +168,7 @@ int compileFile(FileEntry f, CompileSettings s) {
         processOut.close();
 
         if (pidErr == 139 || pidErr == -1_073_741_819) {
-            string filep = f.name.replace(s.scanPathAbsolute, s.scanPath).buildNormalizedPath;
+            string filep = f.originalPath.replace(s.scanPathAbsolute, s.scanPath).buildNormalizedPath;
             printError( filep, 0, 0, "JSPPE0000", "Segmentation fault" );
             return 139;
         }

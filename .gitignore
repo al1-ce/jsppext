@@ -24,6 +24,8 @@ docs/
 *.lst
 
 test/
+____jspp_temp/
+bin/
 
 *.js
 *.jpp

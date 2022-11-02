@@ -7,6 +7,35 @@ import std.stdio: writefln;
 static class Files {
     public static FileEntry[] main;
     public static FileEntry[] modules;
+
+    public static void replacePath(string originalPath, string newPath) {
+        for (int i = 0; i < main.length; i ++) {
+            if (main[i].originalPath == originalPath) {
+                main[i].name = newPath;
+                return;
+            }
+        }
+        for (int i = 0; i < modules.length; i ++) {
+            if (modules[i].originalPath == originalPath) {
+                modules[i].name = newPath;
+                return;
+            }
+        }
+    }
+
+    public static FileEntry getFile(string originalPath) {
+        for (int i = 0; i < main.length; i ++) {
+            if (main[i].originalPath == originalPath) {
+                return main[i];
+            }
+        }
+        for (int i = 0; i < modules.length; i ++) {
+            if (modules[i].originalPath == originalPath) {
+                return modules[i];
+            }
+        }
+        assert(0);
+    }
 }
 
 struct FileEntry {

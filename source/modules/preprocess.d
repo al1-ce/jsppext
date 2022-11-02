@@ -4,13 +4,15 @@ import std.conv: to;
 import std.regex;
 import std.algorithm.searching: startsWith, endsWith, canFind;
 import std.stdio: writef, writefln, readln, stdin, stdout;
-import std.stdio: writeln, write, File;
+import std.stdio: writeln, File;
 import std.path: buildNormalizedPath, absolutePath, isValidPath, dirSeparator, dirName, relativePath, baseName;
 import std.file: readText, exists, isFile, mkdirRecurse, dirEntries, SpanMode, thisExePath, write, getcwd, remove;
-import std.file: copy, getcwd;
+import std.file: copy, getcwd, write;
 import std.format: format;
 import std.array: popFront, popBack, join, split, replace;
 import std.process: execute, environment, executeShell, Config, spawnProcess, wait; 
+import std.uni: toLower;
+import std.string: capitalize;
 
 import modules.files;
 import modules.output;
@@ -58,25 +60,133 @@ int fileFindImports(string filename, string sourcePathAbsolute, string sourcePat
     return 0;
 }
 
-int preprocessFile(FileEntry f, string tempFolder) {
-    string[] imports = [];
-    int cp = compileImports(f, imports);
-    if (cp != 0) return cp;
+int preprocessFile(FileEntry f, string tempFolder, string srcFolder) {
+    // string[] imports = [];
+    // int cp = compileImports(f, imports);
+    // if (cp != 0) return cp;
 
-    string newPath = tempFolder ~ dirSeparator ~ f.path.baseName;
+    string newPath = tempFolder ~ dirSeparator ~ f.path.relativePath(srcFolder.buildNormalizedPath.absolutePath);
+    if (!newPath.dirName.exists) mkdirRecurse(newPath.dirName);
     f.path.copy(newPath);
 
-    auto mainRegex = regex(r"void\s+main\s*\(\s*\)", "gm");
+    bool mainEnabled = true;
+    bool aliasEnabled = true;
+    bool stringEnabled = true;
+    bool importEnabled = true;
+    bool structEnabled = true;
+    bool moduleEnabled = true;
+    bool constEnabled = true;
 
     string mainCode = readText(newPath);
 
-    auto mr = mainCode.matchAll(mainRegex);
+    if (mainEnabled) {
+        auto mainRegex = regex(r"void\s+main\s*\(\s*\)", "gm");
+        auto externalRegex = regex(r"external\s*document\s*\;", "gm");
+        auto importRegex = regex(r"import\s*(?:externals\.dom|Externals\.DOM)\s*\;", "gm");
 
-    if (!mr.empty) {
-        auto ff = new File(newPath, "w");
-        ff.writeln("\ndocument.addEventListener(\"DOMContentLoaded\", main);");
-        ff.close();
+        auto mr = mainCode.matchAll(mainRegex);
+
+        if (!mr.empty) {
+            writelnVerbose("Found \"void main(){}\", injecting main autoexec.");
+            // auto ff = new File(newPath, "w");
+            if (mainCode.matchAll(externalRegex).empty && mainCode.matchAll(importRegex).empty) {
+                mainCode = "external document;" ~ mainCode;
+                writelnVerbose("Missing \"external document;\", injecting.");
+            }
+            mainCode = mainCode ~ "\ndocument.addEventListener(\"DOMContentLoaded\", main);";
+            // ff.write(mainCode);
+            // ff.close();
+        }
     }
+
+    if (aliasEnabled) {
+        auto aliasRegex = regex(r"(?:(\w+)\s+)?alias\s+(\$?(?:\w|\_)+)\s*\=\s*(.*?)\;", "gm");
+        auto aliases = matchAll(mainCode, aliasRegex);
+        mainCode = mainCode.replaceAll(aliasRegex, "");
+        // TODO scopes
+        foreach (match; aliases) {
+            string aName = match[2];
+            string aCode = match[3];
+            auto partRegex = regex(r"\b" ~ aName ~ r"\b");
+            mainCode = mainCode.replaceAll(partRegex, aCode);
+        }
+    }
+
+    if (stringEnabled) {
+        auto tickRegex = regex(r"\`((?:.*?[\n\r]?(?:\\\`)?)*?)\`", "gm");
+        auto charRegex = regex(r"\'((?:.*?(?:\\\')?)*?)\'", "gm");
+
+        mainCode = mainCode.replaceAll(tickRegex, "\"\"\"$1\"\"\"");
+        mainCode = mainCode.replaceAll(charRegex, "`$1`");
+    }
+
+    if (importEnabled) {
+        auto importRegex = regex(r"import\s+((?:\w+\.?)+)(?:\:\s*((?:(?:\w+)\s*(?:\,\s*)?)+))?\;", "gm");
+        auto matches = mainCode.matchAll(importRegex);
+        // TODO scopes
+        foreach (match; matches) {
+            string imp = match[1];
+            if (!(imp.startsWith("std") || imp.startsWith("externals")) ) continue;
+            string[] mods = imp.split(".");
+            string[] exceptions = ["DOM", "URI"];
+            bool isException = false;
+            for (int i = 0; i < mods.length; i++) {
+                if (mods[i] == "std") {
+                    mods[i] = "System";
+                    continue;
+                }
+                for (int j = 0; j < exceptions.length; j++) {
+                    if (mods[i] == exceptions[j].toLower) {
+                        mods[i] = exceptions[j];
+                        isException = true;
+                        break;
+                    }
+                }
+                if (!isException) {
+                    isException = false;
+                    mods[i] = mods[i].capitalize;
+                }
+            }
+            mainCode = mainCode.replace(imp, mods.join("."));
+        }
+    }
+
+    if (moduleEnabled && f.isModule) {
+        auto moduleRegex = regex(r"module\s*((?:\w+\.?)+)\;", "gm");
+        auto importRegex = regex(r"import\s+.*?\;", "gm");
+        auto matches = mainCode.matchAll(importRegex);
+        string lastMatch = "";
+        foreach (match; matches) {
+            // got better ideas?
+            lastMatch = match[0];
+        }
+        // TODO might not work with trailing /*
+        auto mname = mainCode.matchFirst(moduleRegex);
+        if (!mname.empty) {
+            writelnVerbose("Found module name \"%s\". Converting.".format(mname[1]));
+            mainCode = mainCode.replaceFirst(moduleRegex, "");
+            if (lastMatch == "") {
+                mainCode = "module " ~ mname[1] ~ " { " ~ mainCode ~ " \n} ";
+            } else {
+                mainCode = mainCode.replace(lastMatch, lastMatch ~ "module " ~ mname[1] ~ " { ");
+                mainCode ~= " \n} ";
+            }
+        }
+    }
+
+    if (structEnabled) {
+        auto structRegex = regex(r"\bstruct\b", "gm");
+        mainCode = mainCode.replaceAll(structRegex, "class");
+    }
+
+    if (constEnabled) {
+        auto constRegex = regex(r"\bconst\b", "gm");
+        mainCode = mainCode.replaceAll(constRegex, "final");
+    }
+
+    write(newPath, mainCode);
+
+    Files.replacePath(f.originalPath, newPath);
 
     return 0;
 }
@@ -84,6 +194,5 @@ int preprocessFile(FileEntry f, string tempFolder) {
 
 // alias // alias\s+(\$?[\w\_]*)\s*\=\s*(.*?)\;
 // import // import\s+((?:\w+\.?)+)\:((?:\s*(?:\w+)\s*\,?)+)\;
-// import // ^[^\S\r\n]*?import[^\S\r\n]+(std\.?(?:\w+\.?)+)
-// modules // module\s*((\w+\.?)+)\;
+// modules // module\s*((?:\w+\.?)+)\;
 // main // void\s+main\s*\(\s*\)
