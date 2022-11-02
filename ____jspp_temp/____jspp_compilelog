@@ -1,0 +1,6 @@
+Compiling: G:\jspp-compiler-extension\test\src\main.jpp, G:\jspp-compiler-extension\test\src\test.jpp
+           -> G:\jspp-compiler-extension\test\js\main.js
+           -> G:\jspp-compiler-extension\test\js\main.js.map
+Parse Error: Line 6: Unexpected reserved word (G:\jspp-compiler-extension\test\src\main.jpp)
+Parse Error: Line 1: Unexpected token ; (G:\jspp-compiler-extension\test\src\test.jpp)
+  FAILED    (2) errors and (0) warnings

@@ -1,0 +1,1 @@
+./bin/jsppext.exe test/src/ -o test/js/

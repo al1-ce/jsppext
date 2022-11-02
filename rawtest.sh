@@ -1,0 +1,1 @@
+/e/jspp/js++.exe test/src/ -o test/js/main.js

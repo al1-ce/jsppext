@@ -1,0 +1,30 @@
+name: program
+description: Minimal JS++ application
+authors: alice
+copyright: Copyright (c) 2022, alice
+license: MIT license
+compilerVersion: 0.10.0
+build:
+    default:
+        sourcePath: test/src/
+        outputPath: test/js/
+        supressedWarnings: 
+            - JSPPW0000
+            - JSPPW0001
+            - JSPPW0014
+        excludedSourceFiles:
+            - test/src/teest.jpp
+        debug: yes
+        verbose: yes
+    def:
+        sourcePath: test/src/
+        outputPath: test/jss/
+        supressedWarnings: 
+            - JSPPW0000
+            - JSPPW0001
+        excludedSourceFiles:
+            - test/src/teest.jpp
+        verbose: yes
+        nolint: yes
+        unprocessed: yes
+defaultBuild: default

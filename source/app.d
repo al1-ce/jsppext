@@ -1,7 +1,8 @@
 import std.stdio: writef, writefln, readln, stdin, stdout;
 import std.getopt: getopt, GetoptResult, config;
 import std.array: popFront, popBack, join, split, replace;
-import std.file: readText, exists, isFile, mkdirRecurse, dirEntries, SpanMode, thisExePath, write, getcwd, remove;
+import std.file: readText, exists, isFile, mkdirRecurse, dirEntries, rmdirRecurse;
+import std.file: SpanMode, thisExePath, write, getcwd, remove, rmdir, mkdir;
 import std.path: buildNormalizedPath, absolutePath, isValidPath, dirSeparator, dirName, relativePath;
 import std.process: execute, environment, executeShell, Config, spawnProcess, wait;
 import std.conv: to;
@@ -12,28 +13,59 @@ import std.stdio: writeln, write, File;
 
 import sily.getopt;
 
-bool _verbose = false;
+import modules.config;
+import modules.files;
+import modules.compiler;
+import modules.output;
+
+const string jsppextVersion = "1.0.5";
+
+void cleanup() {
+    string tempFolder = getcwd ~ dirSeparator ~ "____jspp_temp";
+    string compileLog = tempFolder ~ dirSeparator ~ "____jspp_compilelog";
+    string versionLog = tempFolder ~ dirSeparator ~ "____jspp_versionlog";
+    if (tempFolder.exists) tempFolder.rmdirRecurse();
+    if (compileLog.exists) compileLog.remove();
+    if (versionLog.exists) versionLog.remove();
+}
 
 int main(string[] args) {
+    cleanup();
     string _usage = "jsppext [options] [file]\n";
 
+    bool _verbose = false;
     bool _debug = false;
     bool _execute = false;
     string _targetPath = "";
     bool _version = false;
+    bool _extversion = false;
     bool _nolint = false;
+    bool _unprocessed = false;
+    bool _initConf = false;
+    bool _buildConf = false;
+    bool _runConf = false;
 
     GetoptResult helpInfo = getopt(
         args, 
         config.passThrough,
         "debug|d", "Comile in debug mode", &_debug,
         "execute|e", "Execute input JS++ program", &_execute,
+        "nolint|n", "Removes error transcription (outputs js++ out instead of jsppext).", &_nolint,
         "output|o", "Output target", &_targetPath,
-        "version", "Display the JS++ compiler version and exit", &_version,
-        "auto|a", "Autocompile file into specified directory", &_targetPath,
+        "unprocessed|u", "Disables pre/post-processing of files (custom syntax)", &_unprocessed,
         "verbose|v", "Produces verbose output", &_verbose,
-        "nolint|n", "Removes error transcription (outputs js++ out instead of jsppext).", &_nolint
+        "init|i", "Initialises project", &_initConf,
+        "build|b", "Builds using \"jsppconf.yaml\" configuration", &_buildConf,
+        "run|r", "Builds & runs using \"jsppconf.yaml\" configuration", &_runConf,
+        "version", "Display the JS++ compiler version and exit", &_version,
+        "extver", "Display the jsppext version and exit", &_extversion,
     );
+
+    if (helpInfo.helpWanted) {
+        Commands[] com = [];
+        printGetopt("", _usage, com, helpInfo.options);
+        return 0;
+    }
 
     string jsppPath = thisExePath().dirName() ~ dirSeparator ~ "js++";
     version (Windows) jsppPath ~= ".exe";
@@ -43,374 +75,128 @@ int main(string[] args) {
         return 0;
     }
 
-    string[] nargs = args.dup;
-
-    if (nargs.length == 1) {
-        writefln("Error: Please specify filepath.");
-        return 1;
-    }
-
-    if (helpInfo.helpWanted) {
-        Commands[] com = [];
-        printGetopt("", _usage, com, helpInfo.options);
+    if (_extversion) {
+        writefln("jsppext v." ~ jsppextVersion);
         return 0;
     }
-        
-    string _srcPath = nargs[1].buildNormalizedPath;
-    string _oldPath = nargs[1].buildNormalizedPath.absolutePath;
 
-    if (_targetPath == "") _targetPath = ".";
+    _verboseOutput = _verbose;
 
-    if (!_targetPath.isValidPath()) {
-        writefln("Error: Path \"%s\" is not valid.", _targetPath);
-        return 1;
-    }
-
-    if (!_srcPath.exists()) {
-        writefln("Error: Path \"%s\" is not valid.", _srcPath);
-        return 1;
-    }
-
-    if (!_srcPath.isFile && _targetPath.isPathFile()) {
-        writefln("Error: Cannot output directory into file. Please specify directory for --output, not file.");
-        return 1;
-    }
-
-    if (nargs.length > 2) {
-        writeln("Warning: Cannot set more then one file or directory to compile, other files are omitted.");
-    }
-
-    FileEntry[] mainFiles;
-    FileEntry[] modules;
-
-    string absScanPath = _oldPath;
-    string scanPath = _srcPath;
-
-    if (_srcPath.isFile) {
-        absScanPath = _oldPath.dirName();
-        scanPath = _srcPath.dirName();
-    } 
-
-    auto entries = dirEntries(absScanPath, "*.{jspp,jpp,js++}", SpanMode.depth);
-
-    writelnVerbose("Compiling programs & module lists\n");
+    string[] nargs = args.dup;
     
-    foreach (file; entries) {
-        int cp = processFile(file.name, mainFiles, modules, absScanPath, scanPath);
-        if (cp != 0) return cp;
-    }
-
-    writelnVerbose("\nCompiling programs import lists\n");
-
-    foreach (FileEntry f; mainFiles) {
-        if (_srcPath.isFile && f.name != _oldPath) continue;
-        writelnVerbose(f.name.replace(absScanPath, scanPath).buildNormalizedPath);
-        string[] imports = [];
-        int cp = compileImports(f, modules, imports);
-        if (cp != 0) return cp;
-
-        if (imports.length > 0) {
-            writelnVerbose("    Imports: ");
-        } else {
-            writelnVerbose("    No imports");
-        }
-
-        string[] _args = [f.name.replace(absScanPath, scanPath).buildNormalizedPath];
-
-        for (int i = 0; i < imports.length; i++) {
-            string imprt = imports[i];
-            _args ~= imprt.replace(absScanPath, scanPath).buildNormalizedPath;
-            writelnVerbose("    " ~ imprt.replace(absScanPath, scanPath).buildNormalizedPath);
-        }
-
-        bool _doOutput = true;
-
-        if (_debug) _args ~= "-d";
-        if (_execute) {
-            if (_srcPath.isFile) {
-                _args ~= "-e";
-                _doOutput = false;
-            } else {
-                writeln("Warning: Directory auto doesn't work with execute.");
-            }
-        }
-
-        if (_doOutput) {
-            _args ~= "-o";
-            
-            if (!_targetPath.buildNormalizedPath.isPathFile()) {
-                auto re = regex(r"(?<=\.)(?:jpp|jspp|js\+\+)$");
-
-                _args ~= f.name.replace(absScanPath, _targetPath).buildNormalizedPath.replaceAll(re, "js");
-
-                string outPath = f.name.replace(absScanPath, _targetPath).buildNormalizedPath.dirName();
-
-                if (!outPath.exists) {
-                    mkdirRecurse(outPath);
-                }
-            } else {
-                auto re = regex(r"(?<=\.)(?:jpp|jspp|js\+\+)$");
-                string newPath = _targetPath.buildNormalizedPath.replaceAll(re, "js");
-                _args ~= newPath;
-
-                string outDir = newPath.dirName();
-
-                if (!outDir.exists) {
-                    mkdirRecurse(outDir);
-                }
-
-            }
-        }
-
-        writelnVerbose();
-        writelnVerbose("Command for \"" ~ f.name.replace(absScanPath, scanPath).buildNormalizedPath ~ "\":");
-        writelnVerbose((["js++"] ~ _args).join(" "));
-        writelnVerbose();
-
-        if (!_verbose && !_srcPath.isFile) 
-            writefln("\n===== %s =====\n", f.name.replace(absScanPath, scanPath).buildNormalizedPath);
-
-        if (_nolint) {
-            wait(spawnProcess([jsppPath] ~ _args, stdin, stdout));
-        } else {
-            string coutPath = (_srcPath.isFile ? _oldPath.dirName : _oldPath) ~ dirSeparator ~ "____jspp_compilelog";
-            auto processOut = File(coutPath, "w+");
-
-            wait(spawnProcess([jsppPath] ~ _args, stdin, processOut));
-            processOut.close();
-
-            auto errRegex = 
-                regex(r"(?:\[  ERROR  \] )(.*?)(?:\: )(.*?)(?: at line )(\d+?)(?: char )(\d+?)(?: at )(.*?)\s");
-            auto warnRegex = 
-                regex(r"(?:\[ WARNING \] )(.*?)(?:\: )(.*?)(?: at line )(\d+?)(?: char )(\d+?)(?: at )(.*?)\s");
-            auto continueRegex = regex(r"(.*?)(?: at line )(\d+?)(?: char )(\d+?)(?: at )(.*?)\s");
-            auto warnContRegex = regex(r"(.*?)(?: at line )(\d+?)(?: char )(\d+?)(?: at )(.*?)\s");
-            auto parseRegex = regex(r"Parse Error: Line (\d*?)\: (.*) \((.*)\)");
-            auto cout = File(coutPath, "r");
-            string line;
-
-            CompileError err;
-
-            bool isErrPrev = false;
-            bool isWarPrev = false;
-
-            while ((line = cout.readln()) !is null) {
-                auto capErr = line.matchFirst(errRegex);
-                auto carErrCon = line.matchFirst(continueRegex);
-                auto capWar = line.matchFirst(warnRegex);
-                auto capWarCon = line.matchFirst(warnContRegex);
-                auto capParse = line.matchFirst(parseRegex);
-                if (!capErr.empty()) {
-                    isErrPrev = true; isWarPrev = false;
-                    err = CompileError(
-                        capErr[1], 
-                        ("0" ~ capErr[3]).to!int, 
-                        ("0" ~ capErr[4]).to!int + 2, 
-                        capErr[2], capErr[5]);
-
-                    string errfile = findFilePath(err.file, mainFiles, modules);
-
-                    err.file = errfile.buildNormalizedPath.relativePath(getcwd());
-
-                    writefln( "%s(%d,%d): Error[%s]: %s.", err.file, err.line, err.pos, err.code, err.message );
-                    // source\app.d(190,34): Error: undefined identifier `caap`, did you mean variable `cap`?
-                } else 
-                if (!carErrCon.empty() && isErrPrev) {
-                    err = CompileError(
-                        err.code, 
-                        ("0" ~ carErrCon[2]).to!int, 
-                        ("0" ~ carErrCon[3]).to!int + 2, 
-                        err.message, 
-                        carErrCon[4]
-                        );
-
-                    string errfile = findFilePath(err.file, mainFiles, modules);
-
-                    err.file = errfile.buildNormalizedPath.relativePath(getcwd());
-
-                    writefln( "%s(%d,%d): Error[%s]: %s.", err.file, err.line, err.pos, err.code, err.message );
-                } else 
-                if (!capWar.empty()) {
-                    isWarPrev = true; isErrPrev = false;
-                    err = CompileError(
-                        capWar[1], 
-                        ("0" ~ capWar[3]).to!int, 
-                        ("0" ~ capWar[4]).to!int + 2, 
-                        capWar[2], capWar[5]);
-
-                    string errfile = findFilePath(err.file, mainFiles, modules);
-
-                    err.file = errfile.buildNormalizedPath.relativePath(getcwd());
-
-                    writefln( "%s(%d,%d): Warning[%s]: %s.", err.file, err.line, err.pos, err.code, err.message );
-                    // source\app.d(190,34): Error: undefined identifier `caap`, did you mean variable `cap`?
-                } else 
-                if (!capWarCon.empty() && isWarPrev) {
-                    err = CompileError(
-                        err.code, 
-                        ("0" ~ capWarCon[2]).to!int, 
-                        ("0" ~ capWarCon[3]).to!int + 2, 
-                        err.message, 
-                        capWarCon[4]
-                        );
-
-                    string errfile = findFilePath(err.file, mainFiles, modules);
-
-                    err.file = errfile.buildNormalizedPath.relativePath(getcwd());
-
-                    writefln( "%s(%d,%d): Warning[%s]: %s.", err.file, err.line, err.pos, err.code, err.message );
-                } else
-                if (!capParse.empty()) {
-                    isWarPrev = false; isErrPrev = false;
-                    err = CompileError("JSPPE0000", ("0" ~ capParse[1]).to!int, 0, capParse[2], capParse[3]);
-
-                    string errfile = findFilePath(err.file, mainFiles, modules);
-
-                    err.file = errfile.buildNormalizedPath.relativePath(getcwd());
-
-                    writefln( "%s(%d,%d): Error[%s]: %s.", err.file, err.line, err.pos, err.code, err.message );
-                } else {
-                    write(line);
-                }
-            }
-            cout.close();
-            coutPath.remove();
-        }
-    }
-
-    return 0;
-}
-
-struct CompileError {
-    string code;
-    int line;
-    int pos;
-    string message;
-    string file;
-}
-
-struct FileEntry {
-    string name;
-    bool isModule;
-    string[] imports;
-    string moduleName;
-
-    this(string _name) {
-        name = _name;
-        isModule = false;
-        imports = [];
-        moduleName = "";
-    }
-}
-
-void writeVerbose(T...)(T args) {
-    if (_verbose) write(args);
-}
-
-void writelnVerbose(T...)(T args) {
-    if (_verbose) writeln(args);
-}
-
-bool isPathFile(string path) {
-    auto re = regex(r"^.*?\.(?:\w+)$");
-    auto cap = path.matchFirst(re);
-    return !cap.empty();
-}
-
-string findFilePath(string file, FileEntry[] files) {
-    for (int i = 0; i < files.length; i ++) {
-        FileEntry e = files[i];
-        if (e.name.endsWith(file)) {
-            return e.name;
-        }
-    }
-    return file;
-}
-
-string findFilePath(string file, FileEntry[] files1, FileEntry[] files2) {
-    string _out = findFilePath(file, files1);
-    if (_out == file) {
-        return findFilePath(file, files2);
-    }
-    return _out;
-}
-
-int findModuleIndex(FileEntry[] entries, string moduleName) {
-    int i = 0;
-    foreach (FileEntry e; entries) {
-        if (e.moduleName == moduleName) {
-            return i;
-        }
-        i++;
-    }
-
-    return -1;
-}
-
-int processFile(string filename, ref FileEntry[] mainFiles, ref FileEntry[] modules, string opath, string srcpath) {
-    FileEntry f = FileEntry(filename);
-    string contents = readText(filename);
-    auto modRegex = regex(r"^[^\S\r\n]*?module[^\S\r\n]+((?:\w+\.?)+)", "gm");
-    auto impRegex = regex(r"^[^\S\r\n]*?import[^\S\r\n]+((?:\w+\.?)+)", "gm");
-
-    auto mods = matchAll(contents, modRegex);
-    foreach (mod; mods) {
-        if (f.isModule == true) {
-            writefln("Error: Found multiple module declarations in file \"%s\".", f.name);
+    string configPath = (getcwd ~ dirSeparator ~ "jsppconf.yaml").buildNormalizedPath.absolutePath;
+    if (_buildConf || _runConf) {
+        /* -------------------------- Auto build via config ------------------------- */
+        if (!configPath.exists) {
+            writefln(
+                "No project config (jsppconf.yaml) was found in\n%s\n" ~ 
+                "Please run jsppext from the root directory of existing project, or run\n" ~ 
+                "\"jsppext --init\" to create new package.\n\nNo valid root package found. Aborting.", 
+                getcwd);
             return 1;
         }
-        f.isModule = true;
-        f.moduleName = mod[1];
-    }
-    
-    writelnVerbose(f.name.replace(opath, srcpath).buildNormalizedPath);
-    if (f.isModule) {
-        writelnVerbose("    Module " ~ f.moduleName);
-    } else {
-        writelnVerbose("    Main Program ");
-    }
 
-    auto impt = matchAll(contents, impRegex);
-    foreach (imp; impt) {
-        if (imp[1].startsWith("System", "Externals")) continue;
-        f.imports ~= imp[1];
-        writelnVerbose("    Import " ~ imp[1]);
-    }
-    // writeln(f.imports);
+        BuildSettings buildSettings;
+        string buildName;
+        if (nargs.length == 1) {
+            buildName = configGetGlobal(configPath, "defaultBuild");
+            if (buildName != "") {
+                buildSettings = configGetBuildSettings(configPath, buildName);
+            }
+        } else {
+            buildName = nargs[1];
+            buildSettings = configGetBuildSettings(configPath, buildName);
+        }
 
-    if (f.isModule) {
-        modules ~= f;
-    } else {
-        mainFiles ~= f;
-    }
-    writelnVerbose();
+        if (buildSettings.isDefined) {
+            writefln("Using \"%s\" build configuration.", buildName);
+        } else {
+            writefln("Using default build configuration.");
+        }
 
-    // auto asyncRegex = regex(r"\bawait\b\s*?\((.*?)\)\s*?;", "gm");
+        string requiredExtVersion = configGetGlobal(configPath, "extensionVersion");
+        string requiredCmpVersion = configGetGlobal(configPath, "compilerVersion");
 
-    return 0;
-}
-
-int compileImports(FileEntry file, FileEntry[] modules, ref string[] imports) {
-    // writef("     : "); writeln(imports);
-    // writef(file.name ~ " : "); writeln(file.imports);
-    for (int i = 0; i < file.imports.length; i++) {
-        string imp = file.imports[i];
-        int idx = modules.findModuleIndex(imp);
-        if (idx == -1) {
-            writefln("Error: Can't find module \"%s\".", imp);
+        if (requiredExtVersion != jsppextVersion && requiredExtVersion != "") {
+            writefln(
+                "Error: Incompatable jsppext version (%s). Config requires \"%s\" version.", 
+                jsppextVersion, requiredExtVersion);
             return 1;
         }
-        if (imports.canFindString(modules[idx].name)) continue;
-        imports ~= modules[idx].name;
-        int cp = compileImports(modules[idx], modules, imports);
-        if (cp != 0) return cp;
-    }
-    return 0;
-}
 
-bool canFindString(string[] arr, string val) {
-    for (int i = 0; i < arr.length; i ++) {
-        if (arr[i] == val) return true;
+        string tempFolder = getcwd ~ dirSeparator ~ "____jspp_temp";
+        mkdir(tempFolder);
+
+        string coutPath = tempFolder ~ dirSeparator ~ "____jspp_versionlog";
+        auto processOut = File(coutPath, "w+");
+
+        wait(spawnProcess([jsppPath, "--version"], stdin, processOut));
+        processOut.close();
+        auto cout = File(coutPath, "r");
+        string cmpVersion = cout.readln().replace("JS++(R) v.", "").replace("\n", "");
+        cout.close();
+
+        if (requiredCmpVersion != cmpVersion && requiredCmpVersion != "") {
+            writefln(
+                "Error: Incompatable js++ version (%s). Config requires \"%s\" version.", 
+                cmpVersion, requiredCmpVersion);
+            if (!buildSettings.isDebug) cleanup();
+            return 1;
+        }
+
+        _verboseOutput = buildSettings.verbose || _verbose;
+
+        int ret = compile(CompileSettings(
+            buildSettings.sourcePath,
+            buildSettings.sourcePath.buildNormalizedPath.absolutePath,
+            buildSettings.sourcePath,
+            buildSettings.sourcePath.buildNormalizedPath.absolutePath,
+            buildSettings.outputPath,
+            buildSettings.excludedSourceFiles, 
+            buildSettings.supressedWarnings,
+            buildSettings.isDebug, _runConf, 
+            buildSettings.noLint, buildSettings.unprocessed
+        ));
+        if (!buildSettings.isDebug) cleanup();
+        return ret;
+
+    } else {
+        /* ---------------------- Manual build via command line --------------------- */
+        string sourcePath = "";
+        if (nargs.length == 1) {
+            sourcePath = ".";
+        } else {
+            sourcePath = nargs[1].buildNormalizedPath;
+        }
+
+        string sourcePathAbsolute = sourcePath.buildNormalizedPath.absolutePath; 
+
+        if (_targetPath == "") _targetPath = ".";
+
+        if (!sourcePath.exists()) {
+            writefln("Error: Path \"%s\" is not valid.", sourcePath);
+            return 1;
+        }
+    
+        if (_initConf) {
+            return configInit(getcwd);
+        }
+
+        if (nargs.length > 2) {
+            writeln("Warning: Cannot set more then one file or directory to compile, other files are omitted.");
+        }
+
+        string tempFolder = getcwd ~ dirSeparator ~ "____jspp_temp";
+        mkdir(tempFolder);
+        int ret = compile(CompileSettings(
+            sourcePath, sourcePathAbsolute, 
+            sourcePath.isFile ? sourcePath.dirName : sourcePath, 
+            sourcePath.isFile ? sourcePathAbsolute.dirName : sourcePathAbsolute, 
+            _targetPath, 
+            [], [],
+            _debug, _execute, _nolint, _unprocessed
+        ));
+        if (!_debug) cleanup();
+        return ret;
     }
-    return false;
 }
