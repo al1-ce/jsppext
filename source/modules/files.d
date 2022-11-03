@@ -68,7 +68,7 @@ string findFilePath(string file, FileEntry[] files) {
     for (int i = 0; i < files.length; i ++) {
         FileEntry e = files[i];
         if (e.name.endsWith(file)) {
-            return e.name;
+            return e.originalPath;
         }
     }
     return file;
