@@ -1,6 +1,7 @@
 # Compiled Object files
 *.o
 *.obj
+*.pdb
 
 # Compiled Dynamic libraries
 *.so
@@ -25,6 +26,7 @@ docs/
 
 test/
 ____jspp_temp/
+
 bin/
 
 *.js

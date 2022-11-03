@@ -131,6 +131,7 @@ int preprocessFile(FileEntry f, string tempFolder, string srcFolder) {
             string[] exceptions = ["DOM", "URI"];
             bool isException = false;
             for (int i = 0; i < mods.length; i++) {
+                if (isException) isException = false;
                 if (mods[i] == "std") {
                     mods[i] = "System";
                     continue;
@@ -143,11 +144,11 @@ int preprocessFile(FileEntry f, string tempFolder, string srcFolder) {
                     }
                 }
                 if (!isException) {
-                    isException = false;
                     mods[i] = mods[i].capitalize;
                 }
             }
-            mainCode = mainCode.replace(imp, mods.join("."));
+            
+            mainCode = mainCode.replace(match[0], "import " ~ mods.join(".") ~ ";");
         }
     }
 

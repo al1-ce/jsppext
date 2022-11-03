@@ -15,7 +15,7 @@ build:
         excludedSourceFiles:
             - test/src/teest.jpp
         debug: yes
-        verbose: yes
+        verbose: no
     def:
         sourcePath: test/src/
         outputPath: test/jss/
