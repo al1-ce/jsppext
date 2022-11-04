@@ -29,5 +29,6 @@ build:
             - test/src/teest.jpp
         verbose: yes
         nolint: yes
-        unprocessed: yes
+        debug: yes
+        preprocess: no
 defaultBuild: default

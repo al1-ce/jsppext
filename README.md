@@ -99,7 +99,7 @@ Project can be initialised with `jsppext --init`. That will create `jsppconf.yam
 | noLint | bool | If set to `true` then original js++ compiler output will be shown. Corresponds to `-n, --nolint` flag. |
 | verbose | bool | If set to `true` then jsppext will output info about each step (scanning, preparing, etc). Corresponds to `-v, --verbose` flag. |
 | debug | bool | If set to `true` then js++ will output debug files. Corresponds to `-d, --debug` flag. |
-| unprocessed | bool | If set to `true` then jsppext will not be preprocessing files. Corresponds to `-u, --unprocessed` flag. |
+| preprocess | bool | If set to `false` then jsppext will not be preprocessing files. Corresponds to `-u, --unprocessed` flag. |
 <!-- IMPLEMENT UNPROCECSSED FEATURE -->
 
 ### Configuration example

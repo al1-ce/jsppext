@@ -45,7 +45,7 @@ int compile(CompileSettings s) {
     writelnVerbose("\nCompiling programs import lists\n");
 
     /* --------------------------- Preprocessing files -------------------------- */
-    if (!s.unprocessed) {
+    if (s.preprocess) {
         foreach (FileEntry f; Files.main) {
             if (s.sourcePath.isFile && f.name != s.sourcePathAbsolute) continue;
             string fileName = f.name.replace(s.scanPathAbsolute, s.scanPath).buildNormalizedPath;
@@ -205,5 +205,5 @@ struct CompileSettings {
     bool debugBuild = false;
     bool doExecute = false;
     bool noLint = false;
-    bool unprocessed = false;
+    bool preprocess = true;
 }

@@ -40,7 +40,7 @@ int main(string[] args) {
     bool _version = false;
     bool _extversion = false;
     bool _nolint = false;
-    bool _unprocessed = false;
+    bool _preprocess = false;
     bool _initConf = false;
     bool _buildConf = false;
     bool _runConf = false;
@@ -52,7 +52,7 @@ int main(string[] args) {
         "execute|e", "Execute input JS++ program", &_execute,
         "nolint|n", "Removes error transcription (outputs js++ out instead of jsppext).", &_nolint,
         "output|o", "Output target", &_targetPath,
-        "unprocessed|u", "Disables pre/post-processing of files (custom syntax)", &_unprocessed,
+        "unprocessed|u", "Disables pre/post-processing of files (custom syntax)", &_preprocess,
         "verbose|v", "Produces verbose output", &_verbose,
         "init|i", "Initialises project", &_initConf,
         "build|b", "Builds using \"jsppconf.yaml\" configuration", &_buildConf,
@@ -60,6 +60,8 @@ int main(string[] args) {
         "version", "Display the JS++ compiler version and exit", &_version,
         "extver", "Display the jsppext version and exit", &_extversion,
     );
+
+    _preprocess = !_preprocess;
 
     if (helpInfo.helpWanted) {
         Commands[] com = [];
@@ -156,7 +158,7 @@ int main(string[] args) {
             buildSettings.excludedDirectories ~ ["____jspp_temp"],
             buildSettings.supressedWarnings,
             buildSettings.isDebug, _runConf, 
-            buildSettings.noLint, buildSettings.unprocessed
+            buildSettings.noLint, buildSettings.preprocess
         ));
         if (!buildSettings.isDebug) cleanup();
         return ret;
@@ -195,7 +197,7 @@ int main(string[] args) {
             sourcePath.isFile ? sourcePathAbsolute.dirName : sourcePathAbsolute, 
             _targetPath, 
             [], ["____jspp_temp"], [],
-            _debug, _execute, _nolint, _unprocessed
+            _debug, _execute, _nolint, _preprocess
         ));
         if (!_debug) cleanup();
         return ret;

@@ -165,8 +165,8 @@ BuildSettings configGetBuildSettings(string configPath, string buildName) {
         build.isDebug = buildNode["debug"].as!bool;
     }
 
-    if (buildNode.containsKeyAs!bool("unprocessed")) {
-        build.verbose = buildNode["unprocessed"].as!bool;
+    if (buildNode.containsKeyAs!bool("preprocess")) {
+        build.preprocess = buildNode["preprocess"].as!bool;
     }
 
     return build;
@@ -200,6 +200,6 @@ struct BuildSettings {
     bool noLint = false;
     bool verbose = false;
     bool isDebug = false;
-    bool unprocessed = false;
+    bool preprocess = true;
     bool isDefined = false;
 }
