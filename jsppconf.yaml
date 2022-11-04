@@ -14,6 +14,9 @@ build:
             - JSPPW0014
         excludedSourceFiles:
             - test/src/teest.jpp
+        excludedDirectories:
+            - test/src/js/
+            - test/src/web/
         debug: yes
         verbose: no
     def:

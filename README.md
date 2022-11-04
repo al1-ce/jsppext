@@ -94,6 +94,7 @@ Project can be initialised with `jsppext --init`. That will create `jsppconf.yam
 | outputPath | string | Path to directory or file to which compiler will output into ("js" folder in root of project will be used if `outputPath` is not set). |
 | workingDirectory | string | !!UNUSED!! |
 | excludedSourceFiles | string[] | Files that must be excluded when compiling project. |
+| excludedDirectories | string[] | Directories that must be excluded when compiling project. `____jspp_temp` is always excluded by default. |
 | supressedWarnings | string[] | List of warnings to supress. Works only when `noLint` setting is off. Warning code must look like `JSPPW0000` |
 | noLint | bool | If set to `true` then original js++ compiler output will be shown. Corresponds to `-n, --nolint` flag. |
 | verbose | bool | If set to `true` then jsppext will output info about each step (scanning, preparing, etc). Corresponds to `-v, --verbose` flag. |

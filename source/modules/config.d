@@ -142,6 +142,13 @@ BuildSettings configGetBuildSettings(string configPath, string buildName) {
         }
     }
 
+    if (buildNode.containsKeyType("excludedDirectories", NodeType.sequence)) {
+        build.excludedDirectories = cast(string[]) (buildNode["excludedDirectories"].sequence!string).array;
+        for (int i = 0; i < build.excludedDirectories.length; i++) {
+            build.excludedDirectories[i] = build.excludedDirectories[i].buildNormalizedPath.absolutePath;
+        }
+    }
+
     if (buildNode.containsKeyType("supressedWarnings", NodeType.sequence)) {
         build.supressedWarnings = cast(string[]) (buildNode["supressedWarnings"].sequence!string).array;
     }
@@ -188,6 +195,7 @@ struct BuildSettings {
     string outputPath = "js/";
     string workingDirectory = ".";
     string[] excludedSourceFiles = [];
+    string[] excludedDirectories = [];
     string[] supressedWarnings = [];
     bool noLint = false;
     bool verbose = false;

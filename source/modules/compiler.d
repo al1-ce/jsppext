@@ -37,7 +37,7 @@ int compile(CompileSettings s) {
     writelnVerbose("Compiling program lists & module lists\n");
     
     foreach (file; entries) {
-        if (s.excludedSourceFiles.canFind(file.name.absolutePath)) continue;
+        if (file.name.absolutePath.isExcluded(s.excludedSourceFiles, s.excludedDirectories)) continue;
         int cp = fileFindImports(file.name, s.scanPathAbsolute, s.scanPath);
         if (cp != 0) return cp;
     }
@@ -185,6 +185,14 @@ int compileFile(FileEntry f, CompileSettings s) {
     return 0;
 }
 
+bool isExcluded(string absolutePath, string[] excludedFiles, string[] excludedDirectories) {
+    if (excludedFiles.canFind(absolutePath)) return true;
+    foreach (dir; excludedDirectories) {
+        if (absolutePath.startsWith(dir)) return true;
+    }
+    return false;
+}
+
 struct CompileSettings {
     string sourcePath = "src/";
     string sourcePathAbsolute = "src/";
@@ -192,6 +200,7 @@ struct CompileSettings {
     string scanPathAbsolute = "src/";
     string targetPath = "js/";
     string[] excludedSourceFiles = [];
+    string[] excludedDirectories = [];
     string[] supressedWarnings = [];
     bool debugBuild = false;
     bool doExecute = false;
