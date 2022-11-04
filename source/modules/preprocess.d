@@ -113,8 +113,8 @@ int preprocessFile(FileEntry f, string tempFolder, string srcFolder) {
     }
 
     if (stringEnabled) {
-        auto tickRegex = regex(r"\`((?:.*?[\n\r]?(?:\\\`)?)*?)\`", "gm");
-        auto charRegex = regex(r"\'((?:.*?(?:\\\')?)*?)\'", "gm");
+        auto tickRegex = regex(r"(?<!\\)\`((?:.*?[\n\r]?(?:\\\`)?)*?)\`", "gm");
+        auto charRegex = regex(r"(?<!\\)\'((?:.*?(?:\\\')?)*?)\'", "gm");
 
         mainCode = mainCode.replaceAll(tickRegex, "\"\"\"$1\"\"\"");
         mainCode = mainCode.replaceAll(charRegex, "`$1`");
