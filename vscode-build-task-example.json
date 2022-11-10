@@ -21,5 +21,14 @@
             "revealProblems": "onProblem",
             "close": true
         }
+    },{
+        "label": "build with jspp vscode and config",
+        "type": "shell",
+        "command": "/e/jspp/jsppext.exe",
+        "args": ["-b"],
+        "group": {
+            "kind": "build"
+        },
+        "problemMatcher": ["$jsppext"]
     }]
 }

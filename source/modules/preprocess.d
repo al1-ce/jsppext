@@ -12,7 +12,7 @@ import std.format: format;
 import std.array: popFront, popBack, join, split, replace;
 import std.process: execute, environment, executeShell, Config, spawnProcess, wait; 
 import std.uni: toLower;
-import std.string: capitalize;
+import std.string: capitalize, indexOf;
 
 import modules.files;
 import modules.output;
@@ -60,7 +60,8 @@ int fileFindImports(string filename, string sourcePathAbsolute, string sourcePat
     return 0;
 }
 
-int preprocessFile(FileEntry f, string tempFolder, string srcFolder) {
+int preprocessFile(FileEntry f, string tempFolder, string srcFolder, 
+    string[] disabledSyntaxChanges = []) {
     // string[] imports = [];
     // int cp = compileImports(f, imports);
     // if (cp != 0) return cp;
@@ -69,13 +70,13 @@ int preprocessFile(FileEntry f, string tempFolder, string srcFolder) {
     if (!newPath.dirName.exists) mkdirRecurse(newPath.dirName);
     f.path.copy(newPath);
 
-    bool mainEnabled = true;
-    bool aliasEnabled = true;
-    bool stringEnabled = true;
-    bool importEnabled = true;
-    bool structEnabled = true;
-    bool moduleEnabled = true;
-    bool constEnabled = true;
+    bool mainEnabled = !disabledSyntaxChanges.canFind("main");
+    bool aliasEnabled = !disabledSyntaxChanges.canFind("alias");
+    bool stringEnabled = !disabledSyntaxChanges.canFind("string");
+    bool importEnabled = !disabledSyntaxChanges.canFind("import");
+    bool moduleEnabled = !disabledSyntaxChanges.canFind("module");
+    bool structEnabled = !disabledSyntaxChanges.canFind("struct");
+    bool constEnabled = !disabledSyntaxChanges.canFind("const");
 
     string mainCode = readText(newPath);
 
@@ -152,14 +153,28 @@ int preprocessFile(FileEntry f, string tempFolder, string srcFolder) {
         }
     }
 
+    // this might be a bit slow becuase of indexOf repeatedly
     if (moduleEnabled && f.isModule) {
         auto moduleRegex = regex(r"module\s*((?:\w+\.?)+)\;", "gm");
         auto importRegex = regex(r"import\s+.*?\;", "gm");
-        auto matches = mainCode.matchAll(importRegex);
+        auto externalRegex = regex(r"external\s+.*?\;", "gm");
+        auto importMatches = mainCode.matchAll(importRegex);
+        auto externalMatches = mainCode.matchAll(externalRegex);
         string lastMatch = "";
-        foreach (match; matches) {
-            // got better ideas?
-            lastMatch = match[0];
+        int lastPos = 0;
+        foreach (match; importMatches) {
+            int pos = mainCode.indexOf(match[0]).to!int;
+            if (pos > lastPos) {
+                lastPos = pos;
+                lastMatch = match[0];
+            }
+        }
+        foreach (match; externalMatches) {
+            int pos = mainCode.indexOf(match[0]).to!int;
+            if (pos > lastPos) {
+                lastPos = pos;
+                lastMatch = match[0];
+            }
         }
         // TODO might not work with trailing /*
         auto mname = mainCode.matchFirst(moduleRegex);

@@ -52,7 +52,7 @@ int compile(CompileSettings s) {
 
             writelnVerbose("Prepocessing \"%s\"\n".format(fileName));
             string tempFolder = getcwd ~ dirSeparator ~ "____jspp_temp";
-            preprocessFile(f, tempFolder, s.scanPathAbsolute);
+            preprocessFile(f, tempFolder, s.scanPathAbsolute, s.disabledSyntaxChanges);
         }
 
         foreach (FileEntry f; Files.modules) {
@@ -61,7 +61,7 @@ int compile(CompileSettings s) {
 
             writelnVerbose("Prepocessing \"%s\"\n".format(fileName));
             string tempFolder = getcwd ~ dirSeparator ~ "____jspp_temp";
-            preprocessFile(f, tempFolder, s.scanPathAbsolute);
+            preprocessFile(f, tempFolder, s.scanPathAbsolute, s.disabledSyntaxChanges);
         }
     }
 
@@ -202,6 +202,7 @@ struct CompileSettings {
     string[] excludedSourceFiles = [];
     string[] excludedDirectories = [];
     string[] supressedWarnings = [];
+    string[] disabledSyntaxChanges = [];
     bool debugBuild = false;
     bool doExecute = false;
     bool noLint = false;

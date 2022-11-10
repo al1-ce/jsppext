@@ -157,6 +157,7 @@ int main(string[] args) {
             buildSettings.excludedSourceFiles, 
             buildSettings.excludedDirectories ~ ["____jspp_temp"],
             buildSettings.supressedWarnings,
+            buildSettings.disabledSyntaxChanges, 
             buildSettings.isDebug, _runConf, 
             buildSettings.noLint, buildSettings.preprocess
         ));
@@ -196,7 +197,7 @@ int main(string[] args) {
             sourcePath.isFile ? sourcePath.dirName : sourcePath, 
             sourcePath.isFile ? sourcePathAbsolute.dirName : sourcePathAbsolute, 
             _targetPath, 
-            [], ["____jspp_temp"], [],
+            [], ["____jspp_temp"], [], [],
             _debug, _execute, _nolint, _preprocess
         ));
         if (!_debug) cleanup();

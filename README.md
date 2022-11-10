@@ -1,5 +1,7 @@
 # Extension to js++ compiler
 
+## !!!Intended to use with [jspp-vscode](https://github.com/al1-ce/jspp-vscode)!!!
+
 ## Installation:
 
 Copy `jsppext` into your js++ compiler location (directory with `js++` executable)
@@ -38,6 +40,11 @@ Insert this into your vscode build task.
 
 ```json
 "problemMatcher": [{ "owner": "js++","source": "js++","pattern": [{"file": 1, "line": 2, "column": 3, "severity": 4, "code": 5, "message": 6, "regexp": "regexp": "(.*?)\\((\\d+)\\,(\\d+)\\)\\: (Error|Warning)\\[(.*?)\\]\\: (.*)" }] }]
+```
+
+Or if you have [jspp-vscode](https://github.com/al1-ce/jspp-vscode) set up then add just:
+```json
+"problemMatcher": ["$jsppext"]
 ```
 
 #### Build task command
@@ -96,6 +103,7 @@ Project can be initialised with `jsppext --init`. That will create `jsppconf.yam
 | excludedSourceFiles | string[] | Files that must be excluded when compiling project. |
 | excludedDirectories | string[] | Directories that must be excluded when compiling project. `____jspp_temp` is always excluded by default. |
 | supressedWarnings | string[] | List of warnings to supress. Works only when `noLint` setting is off. Warning code must look like `JSPPW0000` |
+| disabledSyntaxChanges | string[] | List of disabled syntax changes (Custom syntax) if `preprocess` is enabled. Accepts: `"main"` (main autoexec), `"alias"` (alias syntax), `"string"` (string replacement, `` ` `` to `"""`, `'` to `` ` ``), `"import"` (import name manipulation, `std.encoding.uri` to `System.Encoding.URI`, `externals.dom` to `Externals.DOM`), `"module"` (changes module syntax from `module Name { /* code */ }` to `module name;` at top of file), `"struct"` (aliases `struct` to `class`), `"const"` (aliases `const` to `final`) |
 | noLint | bool | If set to `true` then original js++ compiler output will be shown. Corresponds to `-n, --nolint` flag. |
 | verbose | bool | If set to `true` then jsppext will output info about each step (scanning, preparing, etc). Corresponds to `-v, --verbose` flag. |
 | debug | bool | If set to `true` then js++ will output debug files. Corresponds to `-d, --debug` flag. |

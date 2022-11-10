@@ -18,7 +18,16 @@
                 "isDefault": true
             },
             "label": "build default",
-            "detail": "dub build --compiler=dmd -a=x86_64 -b=debug -c=application"
+            "detail": "dub build --compiler=dmd -a=x86_64 -b=debug -c=application",
+        },
+        {
+            "type": "shell",
+            "command": "bin/jsppext.exe",
+            "args": [
+                "-b"
+            ],
+            "label": "Build js++ project",
+            "problemMatcher": ["$jsppext"]
         }
     ]
 }

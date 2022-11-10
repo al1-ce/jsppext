@@ -153,6 +153,10 @@ BuildSettings configGetBuildSettings(string configPath, string buildName) {
         build.supressedWarnings = cast(string[]) (buildNode["supressedWarnings"].sequence!string).array;
     }
 
+    if (buildNode.containsKeyType("disabledSyntaxChanges", NodeType.sequence)) {
+        build.disabledSyntaxChanges = cast(string[]) (buildNode["disabledSyntaxChanges"].sequence!string).array;
+    }
+
     if (buildNode.containsKeyAs!bool("nolint")) {
         build.noLint = buildNode["nolint"].as!bool;
     }
@@ -197,6 +201,7 @@ struct BuildSettings {
     string[] excludedSourceFiles = [];
     string[] excludedDirectories = [];
     string[] supressedWarnings = [];
+    string[] disabledSyntaxChanges = [];
     bool noLint = false;
     bool verbose = false;
     bool isDebug = false;

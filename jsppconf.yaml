@@ -22,7 +22,7 @@ build:
     def:
         sourcePath: test/src/
         outputPath: test/jss/
-        supressedWarnings: 
+        supressedWarnings:
             - JSPPW0000
             - JSPPW0001
         excludedSourceFiles:
