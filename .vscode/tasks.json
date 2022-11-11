@@ -28,6 +28,16 @@
             ],
             "label": "Build js++ project",
             "problemMatcher": ["$jsppext"]
+        },
+        {
+            "type": "shell",
+            "command": "bin/jsppext.exe",
+            "args": [
+                "-b",
+                "silylib"
+            ],
+            "label": "Build sily lib",
+            "problemMatcher": ["$jsppext"]
         }
     ]
 }

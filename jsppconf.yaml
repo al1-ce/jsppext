@@ -18,18 +18,12 @@ build:
             - test/src/js/
             - test/src/web/
         debug: yes
-        verbose: no
         async: yes
-    def:
-        sourcePath: test/src/
-        outputPath: test/jss/
-        supressedWarnings:
-            - JSPPW0000
-            - JSPPW0001
-        excludedSourceFiles:
-            - test/src/teest.jpp
-        verbose: yes
-        nolint: yes
+        verbose: no
+    silylib:
+        sourcePath: G:\sily-jspp-example\src
+        outputPath: G:\sily-jspp-example\js
         debug: yes
-        preprocess: no
+        async: yes
+        verbose: no
 defaultBuild: default

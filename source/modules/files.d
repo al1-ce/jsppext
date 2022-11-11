@@ -1,10 +1,11 @@
 module modules.files;
 
 import std.regex;
-import std.algorithm.searching: endsWith;
+import std.algorithm.searching: endsWith, canFind;
 import std.stdio: writefln;
-import modules.preprocess: AsyncStorage;
 import std.path: buildNormalizedPath, absolutePath;
+import modules.preprocess: AsyncStorage;
+import modules.output: writelnVerbose;
 
 static class Files {
     public static FileEntry[] main;
@@ -76,14 +77,17 @@ static class Files {
         assert(0);
     }
 
-    public static string[] getModuleNameList(FileEntry f) {
+    public static string[] getModuleNameList(FileEntry f, string[] scannedPaths = []) {
+        writelnVerbose("Getting module name list for %s", f.originalPath);
         string[] moduleList = [];
+        if (scannedPaths.canFind(f.originalPath)) return moduleList;
+        scannedPaths ~= f.originalPath;
         for (int i = 0; i < f.imports.length; i ++) {
             string name = f.imports[i];
             // string path = f.imports[i];
             // string name = Files.findModuleName(path);
             moduleList ~= name;
-            moduleList ~= getModuleNameList(Files.findModule(name));
+            moduleList ~= getModuleNameList(Files.findModule(name), scannedPaths);
         }
         // import std.stdio; writeln(moduleList.noDupes);
         return moduleList.noDupes;

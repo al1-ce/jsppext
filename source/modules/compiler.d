@@ -196,6 +196,7 @@ int compileFile(FileEntry f, CompileSettings s) {
             string outPath = f.originalPath
                 .replace(s.scanPathAbsolute, s.targetPath)
                 .buildNormalizedPath.replaceAll(re, "js");
+            writelnVerbose("Postprocessing \"%s\"\n".format(outPath));
             postprocessAsync(outPath, Files.getFile(f.originalPath).asyncStorage, Files.getModuleNameList(f));
         }
     }

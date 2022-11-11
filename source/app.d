@@ -8,6 +8,7 @@ import std.process: execute, environment, executeShell, Config, spawnProcess, wa
 import std.conv: to;
 import std.regex;
 import std.algorithm.searching: startsWith, endsWith, canFind;
+import std.format: format;
 
 import std.stdio: writeln, write, File;
 
@@ -162,6 +163,7 @@ int main(string[] args) {
             buildSettings.noLint, buildSettings.preprocess, buildSettings.async
         ));
         if (!buildSettings.isDebug) cleanup();
+        writelnVerbose("Compilation complete, exit code: \"%d\"\n".format(ret));
         return ret;
 
     } else {
@@ -201,6 +203,7 @@ int main(string[] args) {
             _debug, _execute, _nolint, _preprocess, false
         ));
         if (!_debug) cleanup();
+        writelnVerbose("Compilation complete, exit code: \"%d\"\n".format(ret));
         return ret;
     }
 }
