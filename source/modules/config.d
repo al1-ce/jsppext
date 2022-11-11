@@ -173,6 +173,10 @@ BuildSettings configGetBuildSettings(string configPath, string buildName) {
         build.preprocess = buildNode["preprocess"].as!bool;
     }
 
+    if (buildNode.containsKeyAs!bool("async")) {
+        build.async = buildNode["async"].as!bool;
+    }
+
     return build;
 }
 
@@ -206,5 +210,6 @@ struct BuildSettings {
     bool verbose = false;
     bool isDebug = false;
     bool preprocess = true;
+    bool async = false;
     bool isDefined = false;
 }

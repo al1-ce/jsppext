@@ -159,7 +159,7 @@ int main(string[] args) {
             buildSettings.supressedWarnings,
             buildSettings.disabledSyntaxChanges, 
             buildSettings.isDebug, _runConf, 
-            buildSettings.noLint, buildSettings.preprocess
+            buildSettings.noLint, buildSettings.preprocess, buildSettings.async
         ));
         if (!buildSettings.isDebug) cleanup();
         return ret;
@@ -198,7 +198,7 @@ int main(string[] args) {
             sourcePath.isFile ? sourcePathAbsolute.dirName : sourcePathAbsolute, 
             _targetPath, 
             [], ["____jspp_temp"], [], [],
-            _debug, _execute, _nolint, _preprocess
+            _debug, _execute, _nolint, _preprocess, false
         ));
         if (!_debug) cleanup();
         return ret;

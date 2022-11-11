@@ -3,6 +3,7 @@ module modules.files;
 import std.regex;
 import std.algorithm.searching: endsWith;
 import std.stdio: writefln;
+import modules.preprocess: AsyncStorage;
 
 static class Files {
     public static FileEntry[] main;
@@ -18,6 +19,21 @@ static class Files {
         for (int i = 0; i < modules.length; i ++) {
             if (modules[i].originalPath == originalPath) {
                 modules[i].name = newPath;
+                return;
+            }
+        }
+    }
+
+    public static void addStorage(string originalPath, AsyncStorage s) {
+        for (int i = 0; i < main.length; i ++) {
+            if (main[i].originalPath == originalPath) {
+                main[i].asyncStorage.add(s);
+                return;
+            }
+        }
+        for (int i = 0; i < modules.length; i ++) {
+            if (modules[i].originalPath == originalPath) {
+                modules[i].asyncStorage.add(s);
                 return;
             }
         }
@@ -45,6 +61,8 @@ struct FileEntry {
     string moduleName;
     bool isProcessed;
     string originalPath;
+
+    AsyncStorage asyncStorage;
 
     alias path = name;
 

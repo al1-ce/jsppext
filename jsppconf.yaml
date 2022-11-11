@@ -19,6 +19,7 @@ build:
             - test/src/web/
         debug: yes
         verbose: no
+        async: yes
     def:
         sourcePath: test/src/
         outputPath: test/jss/

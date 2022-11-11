@@ -53,6 +53,10 @@ int compile(CompileSettings s) {
             writelnVerbose("Prepocessing \"%s\"\n".format(fileName));
             string tempFolder = getcwd ~ dirSeparator ~ "____jspp_temp";
             preprocessFile(f, tempFolder, s.scanPathAbsolute, s.disabledSyntaxChanges);
+
+            if (s.async) {
+                Files.addStorage(f.originalPath, preprocessAsync(Files.getFile(f.originalPath).path));
+            }
         }
 
         foreach (FileEntry f; Files.modules) {
@@ -62,6 +66,10 @@ int compile(CompileSettings s) {
             writelnVerbose("Prepocessing \"%s\"\n".format(fileName));
             string tempFolder = getcwd ~ dirSeparator ~ "____jspp_temp";
             preprocessFile(f, tempFolder, s.scanPathAbsolute, s.disabledSyntaxChanges);
+            
+            if (s.async) {
+                Files.addStorage(f.originalPath, preprocessAsync(Files.getFile(f.originalPath).path));
+            }
         }
     }
 
@@ -98,6 +106,8 @@ int compileFile(FileEntry f, CompileSettings s) {
         writelnVerbose("    " ~ imprt.replace(s.scanPathAbsolute, s.scanPath).buildNormalizedPath);
     }
 
+
+    // FIXME always a file
     bool _doOutput = true;
 
     if (s.debugBuild) _args ~= "-d";
@@ -180,6 +190,14 @@ int compileFile(FileEntry f, CompileSettings s) {
             checkCompilerError(line, s);
         }
         cout.close();
+
+        if (s.preprocess && s.async) {
+            auto re = regex(r"(?<=\.)(?:jpp|jspp|js\+\+)$");
+            string outPath = f.originalPath
+                .replace(s.scanPathAbsolute, s.targetPath)
+                .buildNormalizedPath.replaceAll(re, "js");
+            postprocessAsync(outPath, Files.getFile(f.originalPath).asyncStorage);
+        }
     }
 
     return 0;
@@ -207,4 +225,5 @@ struct CompileSettings {
     bool doExecute = false;
     bool noLint = false;
     bool preprocess = true;
+    bool async = false;
 }

@@ -58,7 +58,7 @@ This repository includes [example build task](vscode-build-task-example.json) wi
 - If source specified as filepath you can set output filepath. I.e. `jsppext src/main.jpp -o js/out.js`, else it's going to only change filename (`jsppext src/main.jpp -o js/` -> `js/main.js`).
 - You cannot specify several files to compile, except if you specify directory. For that, please, use original compiler.
 
-## Custom syntax
+## Custom syntax (enabled by default when using config)
 
 jsppext adds custom syntax and pre/post-processes files to convert it into syntax that js++ compiler can process. This functionality can be disabled with `-u` or `-unprocessed` flag. \
 Custom functionality includes:
@@ -108,7 +108,16 @@ Project can be initialised with `jsppext --init`. That will create `jsppconf.yam
 | verbose | bool | If set to `true` then jsppext will output info about each step (scanning, preparing, etc). Corresponds to `-v, --verbose` flag. |
 | debug | bool | If set to `true` then js++ will output debug files. Corresponds to `-d, --debug` flag. |
 | preprocess | bool | If set to `false` then jsppext will not be preprocessing files. Corresponds to `-u, --unprocessed` flag. |
-<!-- IMPLEMENT UNPROCECSSED FEATURE -->
+| async | bool | Allows usage of async/await. Must be used with preprocess enabled. Disabled by default. |
+
+### Await usage (disabled by default)
+
+Please be aware that `async/await` is very unstable feature because of complexity of js++ compiler. `async/await` must be used cautiously and can be used ONLY in those cases:
+
+- async must be declared in function signature before type. `visibility async type name() {}`
+- await must be declared before function execution. `await name()`
+
+Also note that preprocessor will make all functions with name of `async type name()` function. Same for await.
 
 ### Configuration example
 

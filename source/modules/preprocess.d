@@ -60,8 +60,7 @@ int fileFindImports(string filename, string sourcePathAbsolute, string sourcePat
     return 0;
 }
 
-int preprocessFile(FileEntry f, string tempFolder, string srcFolder, 
-    string[] disabledSyntaxChanges = []) {
+int preprocessFile(FileEntry f, string tempFolder, string srcFolder, string[] disabledSyntaxChanges = []) {
     // string[] imports = [];
     // int cp = compileImports(f, imports);
     // if (cp != 0) return cp;
@@ -79,8 +78,10 @@ int preprocessFile(FileEntry f, string tempFolder, string srcFolder,
     bool constEnabled = !disabledSyntaxChanges.canFind("const");
 
     string mainCode = readText(newPath);
+    mainCode ~= "\n/**/\n"; // fix for trailing comments
 
     if (mainEnabled) {
+        import std.array: replaceFirst;
         auto mainRegex = regex(r"void\s+main\s*\(\s*\)", "gm");
         auto externalRegex = regex(r"external\s*document\s*\;", "gm");
         auto importRegex = regex(r"import\s*(?:externals\.dom|Externals\.DOM)\s*\;", "gm");
@@ -91,7 +92,11 @@ int preprocessFile(FileEntry f, string tempFolder, string srcFolder,
             writelnVerbose("Found \"void main(){}\", injecting main autoexec.");
             // auto ff = new File(newPath, "w");
             if (mainCode.matchAll(externalRegex).empty && mainCode.matchAll(importRegex).empty) {
-                mainCode = "external document;" ~ mainCode;
+                if (mainCode.canFind("\r\n")) {
+                    mainCode = mainCode.replaceFirst("\r\n", "external document;\r\n");
+                } else {
+                    mainCode = mainCode.replaceFirst("\n", "external document;\n");
+                }
                 writelnVerbose("Missing \"external document;\", injecting.");
             }
             mainCode = mainCode ~ "\ndocument.addEventListener(\"DOMContentLoaded\", main);";
@@ -129,7 +134,7 @@ int preprocessFile(FileEntry f, string tempFolder, string srcFolder,
             string imp = match[1];
             if (!(imp.startsWith("std") || imp.startsWith("externals")) ) continue;
             string[] mods = imp.split(".");
-            string[] exceptions = ["DOM", "URI"];
+            string[] exceptions = ["DOM", "URI", "UTF8", "UTF16", "UTF32"];
             bool isException = false;
             for (int i = 0; i < mods.length; i++) {
                 if (isException) isException = false;
@@ -176,7 +181,6 @@ int preprocessFile(FileEntry f, string tempFolder, string srcFolder,
                 lastMatch = match[0];
             }
         }
-        // TODO might not work with trailing /*
         auto mname = mainCode.matchFirst(moduleRegex);
         if (!mname.empty) {
             writelnVerbose("Found module name \"%s\". Converting.".format(mname[1]));
@@ -207,8 +211,111 @@ int preprocessFile(FileEntry f, string tempFolder, string srcFolder,
     return 0;
 }
 
+AsyncStorage preprocessAsync(string path) {
+    string mainCode = readText(path);
 
-// alias // alias\s+(\$?[\w\_]*)\s*\=\s*(.*?)\;
+    auto regexAsyncDeclare = regex(r"async\s+(?:\$?(?:\w|\_)*)\s+(\$?(?:\w|\_)*)\s*\(.*?\)", "gm");
+    auto regexAwaitDeclare = regex(r"await\s+(\$?(?:\w|\_)*)\s*\(.*?\)", "gm");
+
+    
+    auto asyncMatches = mainCode.matchAll(regexAsyncDeclare);
+    auto awaitMatches = mainCode.matchAll(regexAwaitDeclare);
+
+    string[] asyncDeclare;
+    string[] awaitDeclare;
+
+    foreach (match; asyncMatches) {
+        if (!asyncDeclare.canFind(match[1])) {
+            asyncDeclare ~= match[1];
+        }
+    }
+
+    foreach (match; awaitMatches) {
+        if (!awaitDeclare.canFind(match[1])) {
+            awaitDeclare ~= match[1];
+        }
+    }
+
+    auto regexAsync = regex(r"\basync\b", "gm");
+    auto regexAwait = regex(r"\bawait\b", "gm");
+
+    mainCode = mainCode.replaceAll(regexAsync, "     ");
+    mainCode = mainCode.replaceAll(regexAwait, "     ");
+    
+    write(path, mainCode);
+
+    return AsyncStorage(asyncDeclare, awaitDeclare);
+}
+
+void postprocessAsync(string path, AsyncStorage s) {
+    s.removeDuplicates();
+    // writeln(s.asyncDeclare);
+    // writeln(s.awaitDeclare);
+    string mainCode = readText(path);
+
+    foreach (d; s.asyncDeclare) {
+        string funcDeclare = r"\bfunction\s+" ~ d ~ r"\b\s*\(";
+        auto asyncRegex = regex(funcDeclare, "gm");
+
+        mainCode = mainCode.replaceAll(asyncRegex, "async $&");
+        // auto asyncMatches = mainCode.matchAll(asyncRegex);
+
+        // foreach (match; asyncMatches) {
+        //     mainCode = mainCode.replace(match[0], "async " ~ match[0]);
+        // }
+    }
+
+    foreach (d; s.awaitDeclare) {
+        string funcDeclare = r"(?<!function )" ~ d ~ r"\(";
+        auto awaitRegex = regex(funcDeclare, "gm");
+
+        mainCode = mainCode.replaceAll(awaitRegex, "await $&");
+        // auto awaitMatches = mainCode.matchAll(awaitRegex);
+
+        // foreach (match; awaitMatches) {
+        //     mainCode = mainCode.replace(match[0], "await " ~ match[0]);
+        // }
+    }
+
+    auto funcRegex = regex(r"\!function\s*\(\)\s*\{", "gm");
+    mainCode = mainCode.replaceAll(funcRegex, "!await async function () {");
+
+    // fix for wierd declare stuff
+    auto fixRegex1 = regex(r"\bfunction( await)+\b", "gm");
+    mainCode = mainCode.replaceAll(fixRegex1, "function");
+    // auto fixRegex2 = regex(r"\basync (async )+function\b", "gm");
+    // mainCode = mainCode.replaceAll(fixRegex2, "async function");
+    
+    write(path, mainCode);
+}
+
+struct AsyncStorage {
+    string[] asyncDeclare;
+    string[] awaitDeclare;
+
+    void add(AsyncStorage s) {
+        asyncDeclare ~= s.asyncDeclare;
+        awaitDeclare ~= s.awaitDeclare;
+    }
+
+    void removeDuplicates() {
+        import std.algorithm: remove, countUntil;
+        for (int i = 0; i < asyncDeclare.length; i++) {
+            if (asyncDeclare.canFind(asyncDeclare[i]) && i != asyncDeclare.countUntil(asyncDeclare[i])) {
+                asyncDeclare = asyncDeclare.remove(i);
+                i--;
+            }
+        }
+        for (int i = 0; i < awaitDeclare.length; i++) {
+            if (awaitDeclare.canFind(awaitDeclare[i]) && i != awaitDeclare.countUntil(awaitDeclare[i])) {
+                awaitDeclare = awaitDeclare.remove(i);
+                i--;
+            }
+        }
+    }
+}
+
+// alias // alias\s+(\$?(?:\w|\_)*)\s*\=\s*(.*?)\;
 // import // import\s+((?:\w+\.?)+)\:((?:\s*(?:\w+)\s*\,?)+)\;
 // modules // module\s*((?:\w+\.?)+)\;
 // main // void\s+main\s*\(\s*\)
