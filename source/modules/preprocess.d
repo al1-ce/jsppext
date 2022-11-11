@@ -108,7 +108,7 @@ int preprocessFile(FileEntry f, string tempFolder, string srcFolder, string[] di
     if (aliasEnabled) {
         auto aliasRegex = regex(r"(?:(\w+)\s+)?alias\s+(\$?(?:\w|\_)+)\s*\=\s*(.*?)\;", "gm");
         auto aliases = matchAll(mainCode, aliasRegex);
-        mainCode = mainCode.replaceAll(aliasRegex, "");
+        mainCode = mainCode.replaceAll(aliasRegex, "/*$&*/");
         // TODO scopes
         foreach (match; aliases) {
             string aName = match[2];
@@ -184,7 +184,7 @@ int preprocessFile(FileEntry f, string tempFolder, string srcFolder, string[] di
         auto mname = mainCode.matchFirst(moduleRegex);
         if (!mname.empty) {
             writelnVerbose("Found module name \"%s\". Converting.".format(mname[1]));
-            mainCode = mainCode.replaceFirst(moduleRegex, "");
+            mainCode = mainCode.replaceFirst(moduleRegex, "/*$&*/");
             if (lastMatch == "") {
                 mainCode = "module " ~ mname[1] ~ " { " ~ mainCode ~ " \n} ";
             } else {
@@ -211,12 +211,11 @@ int preprocessFile(FileEntry f, string tempFolder, string srcFolder, string[] di
     return 0;
 }
 
-AsyncStorage preprocessAsync(string path) {
+AsyncStorage preprocessAsync(string path, string moduleName) {
     string mainCode = readText(path);
 
     auto regexAsyncDeclare = regex(r"async\s+(?:\$?(?:\w|\_)*)\s+(\$?(?:\w|\_)*)\s*\(.*?\)", "gm");
     auto regexAwaitDeclare = regex(r"await\s+(\$?(?:\w|\_)*)\s*\(.*?\)", "gm");
-
     
     auto asyncMatches = mainCode.matchAll(regexAsyncDeclare);
     auto awaitMatches = mainCode.matchAll(regexAwaitDeclare);
@@ -232,25 +231,33 @@ AsyncStorage preprocessAsync(string path) {
 
     foreach (match; awaitMatches) {
         if (!awaitDeclare.canFind(match[1])) {
-            awaitDeclare ~= match[1];
+            awaitDeclare ~= (moduleName == "" ? "" : moduleName ~ ".") ~ match[1];
         }
     }
 
     auto regexAsync = regex(r"\basync\b", "gm");
     auto regexAwait = regex(r"\bawait\b", "gm");
 
-    mainCode = mainCode.replaceAll(regexAsync, "     ");
-    mainCode = mainCode.replaceAll(regexAwait, "     ");
+    mainCode = mainCode.replaceAll(regexAsync, "/*$&*/");
+    mainCode = mainCode.replaceAll(regexAwait, "/*$&*/");
     
     write(path, mainCode);
 
     return AsyncStorage(asyncDeclare, awaitDeclare);
 }
 
-void postprocessAsync(string path, AsyncStorage s) {
+void postprocessAsync(string path, AsyncStorage s, string[] includedModules) {
     s.removeDuplicates();
     // writeln(s.asyncDeclare);
     // writeln(s.awaitDeclare);
+
+    foreach (m; includedModules) {
+        FileEntry moduleEntry = Files.findModule(m);
+        s.add(moduleEntry.asyncStorage);
+    }
+
+    if (s.isEmpty) return;
+
     string mainCode = readText(path);
 
     foreach (d; s.asyncDeclare) {
@@ -258,11 +265,11 @@ void postprocessAsync(string path, AsyncStorage s) {
         auto asyncRegex = regex(funcDeclare, "gm");
 
         mainCode = mainCode.replaceAll(asyncRegex, "async $&");
-        // auto asyncMatches = mainCode.matchAll(asyncRegex);
 
-        // foreach (match; asyncMatches) {
-        //     mainCode = mainCode.replace(match[0], "async " ~ match[0]);
-        // }
+        string moduleFunctionDeclare = r"(" ~ d ~ r"\:\s*)(function\s*\()";
+        auto moduleAsyncRegex = regex(moduleFunctionDeclare, "gm");
+
+        mainCode = mainCode.replaceAll(moduleAsyncRegex, "$1 async $2");
     }
 
     foreach (d; s.awaitDeclare) {
@@ -270,11 +277,6 @@ void postprocessAsync(string path, AsyncStorage s) {
         auto awaitRegex = regex(funcDeclare, "gm");
 
         mainCode = mainCode.replaceAll(awaitRegex, "await $&");
-        // auto awaitMatches = mainCode.matchAll(awaitRegex);
-
-        // foreach (match; awaitMatches) {
-        //     mainCode = mainCode.replace(match[0], "await " ~ match[0]);
-        // }
     }
 
     auto funcRegex = regex(r"\!function\s*\(\)\s*\{", "gm");
@@ -283,6 +285,8 @@ void postprocessAsync(string path, AsyncStorage s) {
     // fix for wierd declare stuff
     auto fixRegex1 = regex(r"\bfunction( await)+\b", "gm");
     mainCode = mainCode.replaceAll(fixRegex1, "function");
+    auto fixRegex2 = regex(r"\b((?:\$?(?:\w|\_)*?\.)+)await\s+", "gm");
+    mainCode = mainCode.replaceAll(fixRegex2, "await $1 ");
     // auto fixRegex2 = regex(r"\basync (async )+function\b", "gm");
     // mainCode = mainCode.replaceAll(fixRegex2, "async function");
     
@@ -298,20 +302,26 @@ struct AsyncStorage {
         awaitDeclare ~= s.awaitDeclare;
     }
 
+    bool isEmpty() {
+        return (asyncDeclare.length + awaitDeclare.length == 0);
+    }
+
     void removeDuplicates() {
-        import std.algorithm: remove, countUntil;
-        for (int i = 0; i < asyncDeclare.length; i++) {
-            if (asyncDeclare.canFind(asyncDeclare[i]) && i != asyncDeclare.countUntil(asyncDeclare[i])) {
-                asyncDeclare = asyncDeclare.remove(i);
-                i--;
-            }
-        }
-        for (int i = 0; i < awaitDeclare.length; i++) {
-            if (awaitDeclare.canFind(awaitDeclare[i]) && i != awaitDeclare.countUntil(awaitDeclare[i])) {
-                awaitDeclare = awaitDeclare.remove(i);
-                i--;
-            }
-        }
+        // import std.algorithm: remove, countUntil;
+        asyncDeclare = asyncDeclare.noDupes;
+        awaitDeclare = awaitDeclare.noDupes;
+        // for (int i = 0; i < asyncDeclare.length; i++) {
+        //     if (asyncDeclare.canFind(asyncDeclare[i]) && i != asyncDeclare.countUntil(asyncDeclare[i])) {
+        //         asyncDeclare = asyncDeclare.remove(i);
+        //         i--;
+        //     }
+        // }
+        // for (int i = 0; i < awaitDeclare.length; i++) {
+        //     if (awaitDeclare.canFind(awaitDeclare[i]) && i != awaitDeclare.countUntil(awaitDeclare[i])) {
+        //         awaitDeclare = awaitDeclare.remove(i);
+        //         i--;
+        //     }
+        // }
     }
 }
 

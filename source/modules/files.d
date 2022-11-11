@@ -4,6 +4,7 @@ import std.regex;
 import std.algorithm.searching: endsWith;
 import std.stdio: writefln;
 import modules.preprocess: AsyncStorage;
+import std.path: buildNormalizedPath, absolutePath;
 
 static class Files {
     public static FileEntry[] main;
@@ -50,8 +51,56 @@ static class Files {
                 return modules[i];
             }
         }
+        writefln("Unable to find file with path \"%s\".", originalPath);
         assert(0);
     }
+
+    public static FileEntry findModule(string moduleName) {
+        for (int i = 0; i < modules.length; i ++) {
+            if (modules[i].moduleName == moduleName) {
+                return modules[i];
+            }
+        }
+        writefln("Unable to find module name \"%s\".", moduleName);
+        assert(0);
+    }
+
+    public static string findModuleName(string modulePath) {
+        for (int i = 0; i < modules.length; i ++) {
+            // writefln("%s, %s", modules[i].originalPath.fixpath, modulePath.fixpath);
+            if (modules[i].originalPath.fixpath == modulePath.fixpath) {
+                return modules[i].moduleName;
+            }
+        }
+        writefln("Unable to find module at \"%s\".", modulePath);
+        assert(0);
+    }
+
+    public static string[] getModuleNameList(FileEntry f) {
+        string[] moduleList = [];
+        for (int i = 0; i < f.imports.length; i ++) {
+            string name = f.imports[i];
+            // string path = f.imports[i];
+            // string name = Files.findModuleName(path);
+            moduleList ~= name;
+            moduleList ~= getModuleNameList(Files.findModule(name));
+        }
+        // import std.stdio; writeln(moduleList.noDupes);
+        return moduleList.noDupes;
+    }
+}
+
+string fixpath(string path) {
+    return path.buildNormalizedPath.absolutePath;
+}
+
+T[] noDupes(T)(in T[] s) {
+     import std.algorithm: canFind;
+     T[] result;
+     foreach (T c; s)
+         if (!result.canFind(c))
+             result ~= c;
+     return result;
 }
 
 struct FileEntry {

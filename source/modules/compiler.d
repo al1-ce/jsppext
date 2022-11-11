@@ -55,7 +55,7 @@ int compile(CompileSettings s) {
             preprocessFile(f, tempFolder, s.scanPathAbsolute, s.disabledSyntaxChanges);
 
             if (s.async) {
-                Files.addStorage(f.originalPath, preprocessAsync(Files.getFile(f.originalPath).path));
+                Files.addStorage(f.originalPath, preprocessAsync(Files.getFile(f.originalPath).path, ""));
             }
         }
 
@@ -68,7 +68,7 @@ int compile(CompileSettings s) {
             preprocessFile(f, tempFolder, s.scanPathAbsolute, s.disabledSyntaxChanges);
             
             if (s.async) {
-                Files.addStorage(f.originalPath, preprocessAsync(Files.getFile(f.originalPath).path));
+                Files.addStorage(f.originalPath, preprocessAsync(Files.getFile(f.originalPath).path, f.moduleName));
             }
         }
     }
@@ -196,7 +196,7 @@ int compileFile(FileEntry f, CompileSettings s) {
             string outPath = f.originalPath
                 .replace(s.scanPathAbsolute, s.targetPath)
                 .buildNormalizedPath.replaceAll(re, "js");
-            postprocessAsync(outPath, Files.getFile(f.originalPath).asyncStorage);
+            postprocessAsync(outPath, Files.getFile(f.originalPath).asyncStorage, Files.getModuleNameList(f));
         }
     }
 

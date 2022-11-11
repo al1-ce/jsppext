@@ -119,6 +119,8 @@ Please be aware that `async/await` is very unstable feature because of complexit
 
 Also note that preprocessor will make all functions with name of `async type name()` function. Same for await.
 
+This means that your async functions must carry a unique name across modules. Otherwise they all will become async.
+
 ### Configuration example
 
 ```yaml
