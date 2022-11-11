@@ -280,6 +280,7 @@ void postprocessAsync(string path, AsyncStorage s, string[] includedModules) {
     }
 
     auto funcRegex = regex(r"\!function\s*\(\)\s*\{", "gm");
+    mainCode = mainCode.replaceFirst(funcRegex, "!async function () {");
     mainCode = mainCode.replaceAll(funcRegex, "!await async function () {");
 
     // fix for wierd declare stuff
