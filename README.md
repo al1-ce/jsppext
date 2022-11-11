@@ -114,12 +114,15 @@ Project can be initialised with `jsppext --init`. That will create `jsppconf.yam
 
 Please be aware that `async/await` is very unstable feature because of complexity of js++ compiler. `async/await` must be used cautiously and can be used ONLY in those cases:
 
-- async must be declared in function signature before type. `visibility async type name() {}`
-- await must be declared before function execution. `await name()`
+- async must be declared in function signature **before type**. `visibility async type name() {}`
+- async must be declared as **function in file-scope**, not method of class.
+- await must be declared before execution of **named** function, not delegate one. `await name()`
 
-Also note that preprocessor will make all functions with name of `async type name()` function. Same for await.
+Note that preprocessor will make all functions with name of `async type name()` function. Same for await.
 
 This means that your async functions must carry a unique name across modules. Otherwise they all will become async.
+
+Also note that you cannot declare async functions inside of class due to how js++ compiles those classes.
 
 ### Configuration example
 
