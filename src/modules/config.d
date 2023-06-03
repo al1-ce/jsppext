@@ -177,6 +177,12 @@ BuildSettings configGetBuildSettings(string configPath, string buildName) {
         build.async = buildNode["async"].as!bool;
     }
 
+    if (buildNode.containsKeyAs!bool("enableFloat")) {
+        if (!buildNode["enableFloat"].as!bool) {
+            build.disabledSyntaxChanges ~= "float";
+        }
+    }
+
     return build;
 }
 

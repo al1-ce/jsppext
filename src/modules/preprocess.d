@@ -76,6 +76,7 @@ int preprocessFile(FileEntry f, string tempFolder, string srcFolder, string[] di
     bool moduleEnabled = !disabledSyntaxChanges.canFind("module");
     bool structEnabled = !disabledSyntaxChanges.canFind("struct");
     bool constEnabled = !disabledSyntaxChanges.canFind("const");
+    bool floatEnabled = !disabledSyntaxChanges.canFind("float");
 
     string mainCode = readText(newPath);
     mainCode ~= "\n/**/\n"; // fix for trailing comments
@@ -202,6 +203,11 @@ int preprocessFile(FileEntry f, string tempFolder, string srcFolder, string[] di
     if (constEnabled) {
         auto constRegex = regex(r"\bconst\b", "gm");
         mainCode = mainCode.replaceAll(constRegex, "final");
+    }
+
+    if (!floatEnabled) {
+        auto constRegex = regex(r"\bfloat\b", "gm");
+        mainCode = mainCode.replaceAll(constRegex, "double");
     }
 
     write(newPath, mainCode);

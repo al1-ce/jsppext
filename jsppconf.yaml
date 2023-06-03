@@ -20,6 +20,7 @@ build:
         debug: yes
         async: yes
         verbose: no
+        enableFloat: yes
     silylib:
         sourcePath: G:\sily-jspp-example\src
         outputPath: G:\sily-jspp-example\js

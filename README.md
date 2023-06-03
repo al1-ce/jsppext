@@ -109,6 +109,7 @@ Project can be initialised with `jsppext --init`. That will create `jsppconf.yam
 | debug | bool | If set to `true` then js++ will output debug files. Corresponds to `-d, --debug` flag. |
 | preprocess | bool | If set to `false` then jsppext will not be preprocessing files. Corresponds to `-u, --unprocessed` flag. |
 | async | bool | Allows usage of async/await. Must be used with preprocess enabled. Disabled by default. |
+| enableFloat | bool | If set to `true` then jsppext will not replace float keyword with double. Disabled by default. |
 
 ### Await usage (disabled by default)
 

@@ -1,1 +1,1 @@
-./bin/jsppext.exe test/src/ -o test/js/
+./bin/jsppext test/src/ -o test/js/

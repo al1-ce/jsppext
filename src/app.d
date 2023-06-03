@@ -21,6 +21,11 @@ import modules.output;
 
 const string jsppextVersion = "1.0.5";
 
+// TODO: cleanup
+// TODO: nuke
+// TODO: add package management
+// TODO: use ION instead, jspp is dead
+
 void cleanup() {
     string tempFolder = getcwd ~ dirSeparator ~ "____jspp_temp";
     string compileLog = tempFolder ~ dirSeparator ~ "____jspp_compilelog";
@@ -32,7 +37,7 @@ void cleanup() {
 
 int main(string[] args) {
     cleanup();
-    string _usage = "jsppext [options] [file]\n";
+    string _usage = "jsppext [options] [file]";
 
     bool _verbose = false;
     bool _debug = false;
@@ -65,8 +70,7 @@ int main(string[] args) {
     _preprocess = !_preprocess;
 
     if (helpInfo.helpWanted) {
-        Commands[] com = [];
-        printGetopt("", _usage, com, helpInfo.options);
+        printGetopt(_usage, helpInfo.options);
         return 0;
     }
 

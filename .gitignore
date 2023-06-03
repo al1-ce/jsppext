@@ -24,7 +24,7 @@ docs/
 # Code coverage
 *.lst
 
-test/
+# test/
 ____jspp_temp/
 
 bin/
